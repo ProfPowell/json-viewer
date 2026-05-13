@@ -92,3 +92,58 @@ test('safeStringify: circular falls back to String', () => {
   const out = safeStringify(c, 0)
   assert.equal(typeof out, 'string')
 })
+
+// ---------- path tokens for Map/Set entries (Phase B) ----------
+// The new pathToString recognizes a { kind: 'entry', index: i } segment.
+
+const pathToStringV2 = (segs) => {
+  let s = ''
+  for (const seg of segs) {
+    if (typeof seg === 'object' && seg && seg.kind === 'entry') {
+      s += `@${seg.index}`
+    } else if (typeof seg === 'number') {
+      s += `[${seg}]`
+    } else if (/^[A-Za-z_$][\w$]*$/.test(seg)) {
+      s += s ? `.${seg}` : seg
+    } else {
+      s += `[${JSON.stringify(seg)}]`
+    }
+  }
+  return s || '$'
+}
+
+test('pathToStringV2: Map entry at top level', () => {
+  assert.equal(pathToStringV2([{ kind: 'entry', index: 0 }]), '@0')
+})
+test('pathToStringV2: Map entry under a key', () => {
+  assert.equal(pathToStringV2(['cache', { kind: 'entry', index: 3 }]), 'cache@3')
+})
+test('pathToStringV2: Set entry mid-path', () => {
+  assert.equal(pathToStringV2(['data', { kind: 'entry', index: 1 }, 'name']), 'data@1.name')
+})
+
+// Parser: split a string path back into segments
+const parsePath = (s) => {
+  if (!s || s === '$') return []
+  const segs = []
+  const re = /([A-Za-z_$][\w$]*)|\[(\d+)\]|\["([^"]*)"\]|@(\d+)/g
+  let m
+  while ((m = re.exec(s)) !== null) {
+    if (m[4] !== undefined) segs.push({ kind: 'entry', index: Number(m[4]) })
+    else if (m[2] !== undefined) segs.push(Number(m[2]))
+    else if (m[3] !== undefined) segs.push(m[3])
+    else segs.push(m[1])
+  }
+  return segs
+}
+
+test('parsePath: empty', () => assert.deepEqual(parsePath(''), []))
+test('parsePath: $', () => assert.deepEqual(parsePath('$'), []))
+test('parsePath: simple key', () => assert.deepEqual(parsePath('users'), ['users']))
+test('parsePath: array index', () => assert.deepEqual(parsePath('users[0]'), ['users', 0]))
+test('parsePath: Map entry only', () => assert.deepEqual(parsePath('@0'), [{ kind: 'entry', index: 0 }]))
+test('parsePath: nested entry', () => assert.deepEqual(parsePath('cache@3.name'), ['cache', { kind: 'entry', index: 3 }, 'name']))
+test('parsePath: round-trip Map entry', () => {
+  const original = ['cache', { kind: 'entry', index: 3 }, 'name']
+  assert.deepEqual(parsePath(pathToStringV2(original)), original)
+})
