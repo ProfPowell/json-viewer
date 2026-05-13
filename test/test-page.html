@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>json-viewer test page</title>
+  <script type="module" src="/src/json-viewer.js"></script>
+</head>
+<body>
+  <h1>json-viewer test harness</h1>
+  <json-viewer id="basic" expanded="2"></json-viewer>
+  <script type="module">
+    const el = document.getElementById('basic');
+    el.data = { name: 'Ada', skills: ['math', 'engineering'], active: true, n: null };
+  </script>
+</body>
+</html>
