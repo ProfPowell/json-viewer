@@ -23,5 +23,18 @@
     window.__mapEl = mapEl;
     window.__objKey = objKey;
   </script>
+  <json-viewer id="search-viewer" expanded="1"></json-viewer>
+  <script type="module">
+    const sv = document.getElementById('search-viewer');
+    sv.data = {
+      users: [
+        { id: 1, name: 'Ada', email: 'ada@example.com' },
+        { id: 2, name: 'Linus', email: 'linus@example.com' }
+      ],
+      config: { theme: 'dark', adaMode: true },
+      notes: 'nothing about ada here either'
+    };
+    window.__sv = sv;
+  </script>
 </body>
 </html>

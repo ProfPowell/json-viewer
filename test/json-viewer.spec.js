@@ -39,3 +39,39 @@ test('Set entry resolves by @<i>', async ({ page }) => {
   const v = await page.evaluate(() => window.__setEl.entryAt('@2').value)
   expect(v).toBe('gamma')
 })
+
+test('search finds matches across keys and values', async ({ page }) => {
+  const result = await page.evaluate(() => {
+    const it = window.__sv.search('ada')
+    return { count: it.count, current: it.current?.path }
+  })
+  expect(result.count).toBeGreaterThanOrEqual(3) // users[0].name, config.adaMode, notes
+  expect(result.current).toBeDefined()
+})
+
+test('search does not expandAll', async ({ page }) => {
+  const before = await page.evaluate(() => {
+    return window.__sv.shadowRoot.querySelectorAll('details[open]').length
+  })
+  const after = await page.evaluate(() => {
+    window.__sv.search('Linus')
+    return window.__sv.shadowRoot.querySelectorAll('details[open]').length
+  })
+  // After searching for one needle we should have opened only the ancestors of
+  // that one match — bounded by tree depth, not by total <details> count.
+  expect(after - before).toBeLessThanOrEqual(3)
+})
+
+test('search next/prev cycles', async ({ page }) => {
+  const sequence = await page.evaluate(() => {
+    const it = window.__sv.search('ada')
+    const first = it.current?.path
+    it.next()
+    const second = it.current?.path
+    it.prev()
+    const third = it.current?.path
+    return { first, second, third, count: it.count }
+  })
+  expect(sequence.first).toBe(sequence.third)
+  expect(sequence.second).not.toBe(sequence.first)
+})
