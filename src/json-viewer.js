@@ -364,11 +364,62 @@ const compileMatcher = (matcher) => {
   return () => false;
 };
 
+/* ----------------------- source-data record builder ---------------- */
+// Walks the JS value, returns flat records for search.
+const buildRecords = (value, basePath = []) => {
+  const out = [];
+  const visit = (v, segs) => {
+    const path = pathToString(segs);
+    const k = kindOf(v);
+    const lastSeg = segs[segs.length - 1];
+    const keyText =
+      lastSeg && typeof lastSeg === 'object' && lastSeg.kind === 'entry' ? `@${lastSeg.index}` :
+      typeof lastSeg === 'number' ? `[${lastSeg}]` :
+      lastSeg === undefined ? '' : String(lastSeg);
+    if (k === 'object') {
+      out.push({ path, keyText, valueText: '', kind: k });
+      for (const key of Object.keys(v)) visit(v[key], segs.concat(key));
+    } else if (k === 'array') {
+      out.push({ path, keyText, valueText: '', kind: k });
+      for (let i = 0; i < v.length; i++) visit(v[i], segs.concat(i));
+    } else if (k === 'map') {
+      out.push({ path, keyText, valueText: '', kind: k });
+      let i = 0;
+      for (const [, val] of v) {
+        visit(val, segs.concat({ kind: 'entry', index: i }));
+        i++;
+      }
+    } else if (k === 'set') {
+      out.push({ path, keyText, valueText: '', kind: k });
+      let i = 0;
+      for (const val of v) {
+        visit(val, segs.concat({ kind: 'entry', index: i }));
+        i++;
+      }
+    } else {
+      out.push({ path, keyText, valueText: String(v ?? ''), kind: k });
+    }
+  };
+  visit(value, basePath);
+  return out;
+};
+
+const filterRecords = (records, query, { regex = false, caseSensitive = false } = {}) => {
+  if (!query) return [];
+  const re = regex ? new RegExp(query, caseSensitive ? '' : 'i') : null;
+  const match = re
+    ? (s) => re.test(s)
+    : (s) => caseSensitive ? s.includes(query) : s.toLowerCase().includes(query.toLowerCase());
+  return records.filter(r => match(r.keyText) || match(r.valueText));
+};
+
 /* ----------------------- rendering --------------------------------- */
 const MAX_STRING = 200;
 
 const escapeHtml = (s) =>
   String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+const cssEscape = (s) => (typeof CSS !== 'undefined' && CSS.escape) ? CSS.escape(s) : s.replace(/(["\\\]\[:.()])/g, '\\$1');
 
 const renderPrimitive = (v, kind) => {
   switch (kind) {
@@ -429,7 +480,8 @@ class JsonViewer extends HTMLElement {
     };
     this._renderedSet = new WeakSet(); // <details> elements that have rendered children
     this._entryMap = new WeakMap();    // <details>/<li> -> { key, value } for Map/Set entries
-    this._matches = [];                // array of { el } for current search
+    this._matches = [];                // array of { path } for current search
+    this._records = [];                // flat array of { path, keyText, valueText, kind }
     this._matchIdx = -1;
     this._seen = null;                 // circular ref detection during render
     this._bindEvents();
@@ -523,20 +575,22 @@ class JsonViewer extends HTMLElement {
   }
 
   // Iterable / iterator for search hits.
-  search(query) {
-    this._runSearch(query);
+  search(query, options = {}) {
+    this._runSearch(query, options);
     const self = this;
     return {
       next: () => {
         if (!self._matches.length) return { value: undefined, done: true };
-        self._gotoMatch((self._matchIdx + 1) % self._matches.length);
+        self._gotoMatch((self._matchIdx + 1) % self._matches.length, query, options);
         return { value: self._matches[self._matchIdx], done: false };
       },
       prev: () => {
         if (!self._matches.length) return { value: undefined, done: true };
-        self._gotoMatch((self._matchIdx - 1 + self._matches.length) % self._matches.length);
+        self._gotoMatch((self._matchIdx - 1 + self._matches.length) % self._matches.length, query, options);
         return { value: self._matches[self._matchIdx], done: false };
       },
+      get current() { return self._matches[self._matchIdx]; },
+      get count() { return self._matches.length; },
       [Symbol.iterator]() { return this; }
     };
   }
@@ -576,6 +630,7 @@ class JsonViewer extends HTMLElement {
     this._entryMap = new WeakMap();
     this._matches = [];
     this._matchIdx = -1;
+    this._records = (this._data === undefined) ? [] : buildRecords(this._data);
     this._refs.pathBar.dataset.open = 'false';
 
     if (this._data === undefined) {
@@ -733,78 +788,84 @@ class JsonViewer extends HTMLElement {
   }
 
   /* ---------- search ---------- */
-  _runSearch(q) {
-    // Clear previous marks
+  _runSearch(query, options = {}) {
     this._clearMarks();
     this._matches = [];
     this._matchIdx = -1;
     this._refs.searchCt.textContent = '0/0';
-    if (!q) return;
+    if (!query) return;
 
-    const needle = q.toLowerCase();
-    // To find matches across collapsed branches we expand everything first.
-    // This is a deliberate trade-off: simpler and correct, at the cost of a
-    // big DOM grow. For 100k-node JSON this gets expensive; document it.
-    this.expandAll();
+    const hits = filterRecords(this._records, query, options);
+    this._matches = hits.map(r => ({ path: r.path }));
+    this._refs.searchCt.textContent = `${this._matches.length ? 1 : 0}/${this._matches.length}`;
+    if (this._matches.length) this._gotoMatch(0, query, options);
+  }
 
-    const walker = document.createTreeWalker(this._refs.body, NodeFilter.SHOW_TEXT, {
+  _gotoMatch(i, query, options = {}) {
+    if (!this._matches.length) return;
+    this._clearMarks();
+    this._matchIdx = i;
+    const m = this._matches[i];
+
+    // Expand ancestors so the path is visible
+    this._expandAncestors(m.path);
+
+    // Locate the DOM node carrying this path and highlight the substring within it
+    const carrier = this._refs.body.querySelector(`[data-path="${cssEscape(m.path)}"]`);
+    if (carrier && query) this._highlightInNode(carrier, query, options);
+    if (carrier) carrier.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+
+    this._refs.searchCt.textContent = `${this._matchIdx + 1}/${this._matches.length}`;
+  }
+
+  _expandAncestors(path) {
+    if (!path || path === '$') return;
+    const segs = parsePath(path);
+    for (let i = 1; i <= segs.length; i++) {
+      const partial = pathToString(segs.slice(0, i));
+      const det = this._refs.body.querySelector(`details[data-path="${cssEscape(partial)}"]`);
+      if (det) {
+        this._ensureRendered(det);
+        det.open = true;
+      }
+    }
+  }
+
+  _highlightInNode(node, query, { regex = false, caseSensitive = false } = {}) {
+    const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT, {
       acceptNode: (n) => {
-        if (!n.nodeValue || !n.nodeValue.toLowerCase().includes(needle)) return NodeFilter.FILTER_REJECT;
-        // skip text inside <button.copy> etc.
         const p = n.parentElement;
-        if (p && (p.classList.contains('size') || p.classList.contains('type') || p.classList.contains('copy') || p.classList.contains('truncated'))) {
+        if (!p || p.classList.contains('size') || p.classList.contains('type') || p.classList.contains('copy')) {
           return NodeFilter.FILTER_REJECT;
         }
         return NodeFilter.FILTER_ACCEPT;
       }
     });
-
-    const hits = [];
-    let n;
-    while ((n = walker.nextNode())) hits.push(n);
-
-    // Wrap each occurrence in <mark>
-    for (const textNode of hits) {
-      const parent = textNode.parentNode;
+    const escapedQuery = query.replace(/[.+^${}()|[\]\\]/g, '\\$&');
+    const re = regex
+      ? new RegExp(query, caseSensitive ? 'g' : 'gi')
+      : new RegExp(escapedQuery, caseSensitive ? 'g' : 'gi');
+    let textNode;
+    while ((textNode = walker.nextNode())) {
       const text = textNode.nodeValue;
+      re.lastIndex = 0;
+      if (!re.test(text)) { continue; }
+      re.lastIndex = 0;
       const frag = document.createDocumentFragment();
-      let idx = 0;
-      const lower = text.toLowerCase();
-      while (idx < text.length) {
-        const found = lower.indexOf(needle, idx);
-        if (found === -1) {
-          frag.appendChild(document.createTextNode(text.slice(idx)));
-          break;
-        }
-        if (found > idx) frag.appendChild(document.createTextNode(text.slice(idx, found)));
+      let last = 0;
+      let mm;
+      while ((mm = re.exec(text)) !== null) {
+        if (mm.index > last) frag.appendChild(document.createTextNode(text.slice(last, mm.index)));
         const mark = document.createElement('mark');
-        mark.textContent = text.slice(found, found + needle.length);
+        mark.className = 'match-active';
+        mark.textContent = mm[0];
         frag.appendChild(mark);
-        this._matches.push({ el: mark });
-        idx = found + needle.length;
+        last = mm.index + mm[0].length;
+        if (mm.index === re.lastIndex) re.lastIndex++;  // safety for zero-width
       }
-      parent.replaceChild(frag, textNode);
+      if (last < text.length) frag.appendChild(document.createTextNode(text.slice(last)));
+      textNode.parentNode.replaceChild(frag, textNode);
     }
-    if (this._matches.length) {
-      this._gotoMatch(0);
-    }
-    this._refs.searchCt.textContent = `${this._matches.length ? this._matchIdx + 1 : 0}/${this._matches.length}`;
-  }
-
-  _gotoMatch(i) {
-    if (!this._matches.length) return;
-    this._matches.forEach((m) => m.el.classList.remove('match-active'));
-    this._matchIdx = i;
-    const m = this._matches[i];
-    m.el.classList.add('match-active');
-    // Make sure ancestor <details> are open
-    let p = m.el.parentElement;
-    while (p && p !== this._refs.body) {
-      if (p.tagName === 'DETAILS') p.open = true;
-      p = p.parentElement;
-    }
-    m.el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-    this._refs.searchCt.textContent = `${this._matchIdx + 1}/${this._matches.length}`;
   }
 
   _clearMarks() {
