@@ -1,0 +1,15 @@
+{
+  "endpoint": "/v1/users",
+  "method": "GET",
+  "status": 200,
+  "headers": {
+    "content-type": "application/json",
+    "x-request-id": "req_a1b2c3"
+  },
+  "users": [
+    { "id": 1, "name": "Ada Lovelace", "email": "ada@example.com", "active": true },
+    { "id": 2, "name": "Linus Torvalds", "email": "linus@example.com", "active": true },
+    { "id": 3, "name": "Grace Hopper", "email": "grace@example.com", "active": false }
+  ],
+  "page": { "next": null, "prev": null, "total": 3 }
+}

@@ -36,5 +36,35 @@
     };
     window.__sv = sv;
   </script>
+
+  <!-- Loaded-from-fixture viewer used by the fixture-driven render tests -->
+  <json-viewer id="api-viewer" src="/test/fixtures/api.json" expanded="1" show-types></json-viewer>
+
+  <!-- Deep tree for lazy-expansion test -->
+  <json-viewer id="nested-viewer" src="/test/fixtures/nested.json" expanded="1"></json-viewer>
+
+  <!-- Glob expansion harness with everything pre-rendered (expanded=3 so children of users render) -->
+  <json-viewer id="glob-viewer" expanded="3"></json-viewer>
+  <script type="module">
+    const gv = document.getElementById('glob-viewer');
+    gv.data = {
+      users: [
+        { id: 1, name: 'Ada' },
+        { id: 2, name: 'Linus' }
+      ]
+    };
+    window.__gv = gv;
+  </script>
+
+  <!-- Viewer wired for event capture; tests trigger clicks then read window.__events -->
+  <json-viewer id="event-viewer" expanded="2"></json-viewer>
+  <script type="module">
+    const ev = document.getElementById('event-viewer');
+    ev.data = { greeting: 'hello', count: 42 };
+    window.__events = []
+    ev.addEventListener('json-viewer:keyclick', (e) => window.__events.push({ kind: 'keyclick', detail: e.detail }))
+    ev.addEventListener('json-viewer:valueclick', (e) => window.__events.push({ kind: 'valueclick', detail: e.detail }))
+    window.__eventEl = ev
+  </script>
 </body>
 </html>
