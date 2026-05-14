@@ -1,0 +1,1141 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>json-viewer · standalone web component</title>
+  <style>
+    /* --- Page chrome (demo only; component is self-contained) --- */
+    :root {
+      color-scheme: light dark;
+      --page-bg: light-dark(#fafaf9, #18181b);
+      --page-fg: light-dark(#1c1917, #f4f4f5);
+      --page-muted: light-dark(#71717a, #a1a1aa);
+      --page-border: light-dark(#e7e5e4, #3f3f46);
+      --page-surface: light-dark(#ffffff, #27272a);
+      --page-accent: light-dark(#0f766e, #2dd4bf);
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body {
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+      background: var(--page-bg);
+      color: var(--page-fg);
+      line-height: 1.5;
+      padding: clamp(0.75rem, 2vw, 2rem);
+      max-width: 80rem;
+      margin-inline: auto;
+    }
+    header { margin-bottom: 2rem; }
+    h1 { font-size: clamp(1.5rem, 1rem + 2vw, 2.25rem); margin: 0 0 0.5rem; letter-spacing: -0.02em; }
+    .lede { color: var(--page-muted); max-width: 60ch; margin: 0; }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      align-items: center;
+      padding: 0.75rem;
+      background: var(--page-surface);
+      border: 1px solid var(--page-border);
+      border-radius: 0.75rem;
+      margin-bottom: 1rem;
+    }
+    .controls label { font-size: 0.875rem; color: var(--page-muted); display: inline-flex; gap: 0.375rem; align-items: center; }
+    .controls select, .controls input[type="number"], .controls button {
+      font: inherit;
+      font-size: 0.875rem;
+      padding: 0.375rem 0.625rem;
+      border: 1px solid var(--page-border);
+      border-radius: 0.375rem;
+      background: var(--page-bg);
+      color: inherit;
+    }
+    .controls button { cursor: pointer; }
+    .controls button:hover { border-color: var(--page-accent); }
+    .controls input[type="number"] { width: 4rem; }
+
+    details.api {
+      margin-top: 2rem;
+      padding: 1rem 1.25rem;
+      background: var(--page-surface);
+      border: 1px solid var(--page-border);
+      border-radius: 0.75rem;
+    }
+    details.api summary { font-weight: 600; cursor: pointer; }
+    details.api table { border-collapse: collapse; margin-top: 0.75rem; font-size: 0.875rem; width: 100%; }
+    details.api th, details.api td { text-align: left; padding: 0.375rem 0.75rem; border-bottom: 1px solid var(--page-border); vertical-align: top; }
+    details.api code { font-family: ui-monospace, "JetBrains Mono", monospace; background: var(--page-bg); padding: 0.125rem 0.375rem; border-radius: 0.25rem; }
+    footer { color: var(--page-muted); font-size: 0.8125rem; margin-top: 2rem; text-align: center; }
+
+    /* Demonstrate VB-token override from outside the shadow boundary */
+    body[data-vb-theme="warm"] json-viewer {
+      --vb-json-key: #b91c1c;
+      --vb-json-string: #b45309;
+      --vb-json-number: #1d4ed8;
+      --vb-accent: #ea580c;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>&lt;json-viewer&gt;</h1>
+    <p class="lede">
+      A standalone JSON viewer web component. Native <code>&lt;details&gt;</code> for collapse,
+      Shadow DOM for isolation, Vanilla Breeze tokens for theming, mobile-first toolbar,
+      programmatic path API for expand / collapse / search.
+    </p>
+  </header>
+
+  <div class="controls" role="toolbar" aria-label="Demo controls">
+    <label>
+      Dataset
+      <select id="dataset-select">
+        <option value="api">API response</option>
+        <option value="config">Config file</option>
+        <option value="nested">Deeply nested</option>
+        <option value="array">Large array (200 items)</option>
+        <option value="exotic">Exotic types</option>
+        <option value="huge">Huge object (~2000 keys)</option>
+      </select>
+    </label>
+    <label>
+      Expand depth
+      <input id="depth-input" type="number" min="0" max="20" value="2" />
+    </label>
+    <label>
+      <input id="types-toggle" type="checkbox" />
+      Show types
+    </label>
+    <label>
+      <input id="sizes-toggle" type="checkbox" checked />
+      Show sizes
+    </label>
+    <label>
+      <input id="indices-toggle" type="checkbox" checked />
+      Show array indices
+    </label>
+    <button id="theme-warm">Swap theme tokens</button>
+    <button id="expand-all">Expand all</button>
+    <button id="collapse-all">Collapse all</button>
+  </div>
+
+  <json-viewer id="viewer" expanded="2" show-sizes></json-viewer>
+
+  <details class="api">
+    <summary>Component API</summary>
+    <table>
+      <thead>
+        <tr><th>Type</th><th>Name</th><th>Notes</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>attr</td><td><code>data</code></td><td>JSON string. Prefer the <code>.data</code> property for objects.</td></tr>
+        <tr><td>attr</td><td><code>src</code></td><td>URL to fetch JSON from.</td></tr>
+        <tr><td>attr</td><td><code>expanded</code></td><td>Depth (integer), <code>true</code>, or <code>false</code>. Default <code>1</code>.</td></tr>
+        <tr><td>attr</td><td><code>mode</code></td><td><code>tree</code> (default) or <code>raw</code>.</td></tr>
+        <tr><td>attr</td><td><code>show-types</code></td><td>Display type chips next to values.</td></tr>
+        <tr><td>attr</td><td><code>show-sizes</code></td><td>Display item counts on arrays/objects.</td></tr>
+        <tr><td>attr</td><td><code>show-indices</code></td><td>Display array indices.</td></tr>
+        <tr><td>attr</td><td><code>indent</code></td><td>ch units for indentation (default <code>2</code>).</td></tr>
+        <tr><td>prop</td><td><code>.data</code></td><td>The object to render. Setter triggers re-render.</td></tr>
+        <tr><td>method</td><td><code>.expand(path)</code></td><td>Path string, glob (<code>**.name</code>), or RegExp.</td></tr>
+        <tr><td>method</td><td><code>.collapse(path)</code></td><td>Same matcher style as <code>.expand()</code>.</td></tr>
+        <tr><td>method</td><td><code>.expandAll()</code> / <code>.collapseAll()</code></td><td>Bulk operations.</td></tr>
+        <tr><td>method</td><td><code>.search(query)</code></td><td>Returns iterator; <code>.next()</code> scrolls to + highlights match.</td></tr>
+        <tr><td>method</td><td><code>.copy()</code></td><td>Copy current JSON to clipboard.</td></tr>
+        <tr><td>event</td><td><code>keyclick</code></td><td>Detail: <code>{ path, key, value }</code>. Fires when a key is tapped.</td></tr>
+        <tr><td>event</td><td><code>valueclick</code></td><td>Detail: <code>{ path, value, type }</code>.</td></tr>
+        <tr><td>token</td><td><code>--vb-json-key</code>, <code>--vb-json-string</code>, <code>--vb-json-number</code>, <code>--vb-json-boolean</code>, <code>--vb-json-null</code>, <code>--vb-accent</code>, <code>--vb-surface</code>, <code>--vb-text</code>, <code>--vb-text-muted</code>, <code>--vb-border</code>, <code>--vb-font-mono</code>, <code>--vb-radius</code>, <code>--vb-space-1..4</code></td><td>Override from outside the shadow boundary.</td></tr>
+      </tbody>
+    </table>
+  </details>
+
+  <footer>Drop in <code>&lt;json-viewer&gt;</code>. Set <code>.data</code>. Done.</footer>
+
+  <script>
+  /* =====================================================================
+   * <json-viewer>
+   * A standalone, framework-free JSON viewer custom element.
+   * ---------------------------------------------------------------------
+   * Design:
+   *   - Shadow DOM for style isolation; CSS custom properties for theming.
+   *   - Each object/array node is a native <details> for keyboard + a11y.
+   *   - Children render lazily on the first `toggle` event of their <details>.
+   *   - Programmatic path API: 'users[0].name', glob 'users.*.email', '**.id'.
+   *   - Search expands the path to any match, scrolls into view, highlights.
+   * ===================================================================== */
+  (() => {
+    const TPL = document.createElement('template');
+    TPL.innerHTML = `
+      <style>
+        :host {
+          /* Token contract: external --vb-* with safe fallbacks */
+          --_font: var(--vb-font-mono, ui-monospace, "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace);
+          --_surface: var(--vb-surface, light-dark(#ffffff, #1c1917));
+          --_text: var(--vb-text, light-dark(#1c1917, #f4f4f5));
+          --_muted: var(--vb-text-muted, light-dark(#71717a, #a1a1aa));
+          --_border: var(--vb-border, light-dark(#e7e5e4, #3f3f46));
+          --_accent: var(--vb-accent, light-dark(#0f766e, #2dd4bf));
+          --_radius: var(--vb-radius, 0.5rem);
+          --_s1: var(--vb-space-1, 0.25rem);
+          --_s2: var(--vb-space-2, 0.5rem);
+          --_s3: var(--vb-space-3, 0.75rem);
+          --_s4: var(--vb-space-4, 1rem);
+
+          --_string: var(--vb-json-string, light-dark(#15803d, #4ade80));
+          --_number: var(--vb-json-number, light-dark(#1d4ed8, #60a5fa));
+          --_boolean: var(--vb-json-boolean, light-dark(#a16207, #fbbf24));
+          --_null: var(--vb-json-null, light-dark(#71717a, #a1a1aa));
+          --_key: var(--vb-json-key, light-dark(#7e22ce, #c084fc));
+          --_punct: var(--vb-json-punct, light-dark(#52525b, #a1a1aa));
+
+          --_indent: calc(var(--indent, 2) * 1ch);
+
+          color-scheme: light dark;
+          display: block;
+          font-family: var(--_font);
+          font-size: 0.875rem;
+          line-height: 1.55;
+          color: var(--_text);
+          background: var(--_surface);
+          border: 1px solid var(--_border);
+          border-radius: var(--_radius);
+          overflow: hidden;
+          container-type: inline-size;
+        }
+
+        .toolbar {
+          display: flex;
+          flex-wrap: wrap;
+          gap: var(--_s1);
+          padding: var(--_s2);
+          border-bottom: 1px solid var(--_border);
+          background: var(--_surface);
+          position: sticky;
+          top: 0;
+          z-index: 2;
+        }
+        .toolbar button {
+          font: inherit;
+          font-size: 0.8125rem;
+          min-height: 2.25rem;
+          min-width: 2.25rem;
+          padding: 0 var(--_s2);
+          color: var(--_text);
+          background: transparent;
+          border: 1px solid var(--_border);
+          border-radius: calc(var(--_radius) * 0.6);
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          gap: var(--_s1);
+        }
+        .toolbar button:hover, .toolbar button:focus-visible {
+          border-color: var(--_accent);
+          outline: none;
+        }
+        .toolbar button[aria-pressed="true"] {
+          background: var(--_accent);
+          color: var(--_surface);
+          border-color: var(--_accent);
+        }
+        .toolbar .label { display: inline; }
+        .toolbar .icon { font-family: var(--_font); font-weight: 700; }
+
+        .search {
+          padding: var(--_s2);
+          border-bottom: 1px solid var(--_border);
+          display: none;
+          gap: var(--_s1);
+          align-items: center;
+        }
+        .search[data-open="true"] { display: flex; }
+        .search input {
+          flex: 1;
+          font: inherit;
+          min-height: 2.25rem;
+          padding: 0 var(--_s2);
+          background: var(--_surface);
+          color: var(--_text);
+          border: 1px solid var(--_border);
+          border-radius: calc(var(--_radius) * 0.6);
+        }
+        .search input:focus-visible { outline: 2px solid var(--_accent); outline-offset: 1px; }
+        .search .count { font-size: 0.75rem; color: var(--_muted); min-width: 4ch; text-align: center; }
+
+        .path-bar {
+          padding: var(--_s1) var(--_s2);
+          border-bottom: 1px solid var(--_border);
+          font-size: 0.75rem;
+          color: var(--_muted);
+          display: none;
+          align-items: center;
+          gap: var(--_s2);
+        }
+        .path-bar[data-open="true"] { display: flex; }
+        .path-bar code {
+          color: var(--_text);
+          font-family: var(--_font);
+          word-break: break-all;
+          flex: 1;
+        }
+
+        .body {
+          padding: var(--_s2);
+          overflow: auto;
+          max-height: var(--max-height, none);
+        }
+        .body[data-mode="raw"] pre {
+          margin: 0;
+          white-space: pre;
+          tab-size: var(--indent, 2);
+        }
+
+        ul, li { list-style: none; margin: 0; padding: 0; }
+        li { padding-left: 0; }
+
+        details {
+          padding-left: 0;
+        }
+        details > ul {
+          padding-left: var(--_indent);
+          border-left: 1px dashed transparent;
+        }
+        details[open] > ul { border-left-color: var(--_border); }
+
+        summary {
+          cursor: pointer;
+          list-style: none;
+          display: flex;
+          align-items: baseline;
+          gap: 0.25ch;
+          padding: 1px 0;
+          min-height: 1.55em;
+          user-select: text;
+        }
+        summary::-webkit-details-marker { display: none; }
+        summary::marker { display: none; }
+        summary::before {
+          content: "▸";
+          color: var(--_muted);
+          font-size: 0.75em;
+          width: 1ch;
+          display: inline-block;
+          transition: transform 120ms ease;
+        }
+        details[open] > summary::before { transform: rotate(90deg); transform-origin: 30% 50%; }
+
+        .key {
+          color: var(--_key);
+          cursor: pointer;
+          padding: 0 1px;
+          border-radius: 2px;
+        }
+        .key:hover, .key:focus-visible { background: color-mix(in oklch, var(--_accent) 18%, transparent); outline: none; }
+        .punct { color: var(--_punct); }
+        .colon { color: var(--_punct); margin-right: 0.5ch; }
+        .v-string { color: var(--_string); word-break: break-word; }
+        .v-number { color: var(--_number); }
+        .v-boolean { color: var(--_boolean); }
+        .v-null { color: var(--_null); font-style: italic; }
+        .v-undefined { color: var(--_muted); font-style: italic; }
+        .v-bigint { color: var(--_number); }
+        .v-symbol { color: var(--_boolean); font-style: italic; }
+        .v-function { color: var(--_muted); font-style: italic; }
+        .v-date { color: var(--_string); font-style: italic; }
+        .v-regexp { color: var(--_string); }
+        .v-ref { color: var(--_muted); font-style: italic; }
+
+        .size, .type {
+          color: var(--_muted);
+          font-size: 0.75em;
+          margin-left: 0.5ch;
+        }
+        .type {
+          padding: 0 0.5ch;
+          border: 1px solid var(--_border);
+          border-radius: 999px;
+          font-variant: tabular-nums;
+        }
+        .index { color: var(--_muted); margin-right: 0.5ch; user-select: none; }
+
+        .copy {
+          opacity: 0;
+          margin-left: 0.5ch;
+          padding: 0 0.4ch;
+          font: inherit;
+          font-size: 0.75em;
+          background: transparent;
+          color: var(--_muted);
+          border: 1px solid var(--_border);
+          border-radius: 3px;
+          cursor: pointer;
+        }
+        summary:hover .copy, summary:focus-within .copy { opacity: 1; }
+        @media (hover: none) { .copy { opacity: 1; } }
+        .copy:hover { color: var(--_accent); border-color: var(--_accent); }
+
+        .truncated {
+          color: var(--_muted);
+          font-size: 0.75em;
+          cursor: pointer;
+          margin-left: 0.5ch;
+          text-decoration: underline dotted;
+        }
+
+        a.v-url {
+          color: var(--_string);
+          text-decoration: underline;
+          text-underline-offset: 2px;
+        }
+
+        mark {
+          background: color-mix(in oklch, var(--_accent) 30%, transparent);
+          color: inherit;
+          border-radius: 2px;
+          padding: 0 1px;
+        }
+        .match-active mark { background: var(--_accent); color: var(--_surface); }
+
+        .empty {
+          padding: var(--_s4);
+          color: var(--_muted);
+          text-align: center;
+          font-style: italic;
+        }
+
+        /* Mobile: collapse toolbar labels to icons */
+        @container (max-width: 480px) {
+          .toolbar .label { display: none; }
+          .toolbar button { padding: 0; justify-content: center; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          details > summary::before { transition: none; }
+        }
+      </style>
+      <div class="toolbar" part="toolbar" role="toolbar" aria-label="JSON viewer controls">
+        <button data-act="expand"      title="Expand all"   aria-label="Expand all"><span class="icon">+</span><span class="label">Expand</span></button>
+        <button data-act="collapse"    title="Collapse all" aria-label="Collapse all"><span class="icon">−</span><span class="label">Collapse</span></button>
+        <button data-act="search-toggle" title="Search (/)" aria-label="Search" aria-pressed="false"><span class="icon">⌕</span><span class="label">Search</span></button>
+        <button data-act="mode-toggle" title="Toggle raw / tree" aria-label="Toggle raw mode" aria-pressed="false"><span class="icon">{ }</span><span class="label">Raw</span></button>
+        <button data-act="copy"        title="Copy JSON to clipboard" aria-label="Copy JSON"><span class="icon">⧉</span><span class="label">Copy</span></button>
+      </div>
+      <div class="search" part="search" role="search">
+        <input type="search" placeholder="Search keys and values…" aria-label="Search" />
+        <span class="count" aria-live="polite">0/0</span>
+        <button data-act="search-prev" aria-label="Previous match" title="Previous (⇧⏎)">↑</button>
+        <button data-act="search-next" aria-label="Next match" title="Next (⏎)">↓</button>
+        <button data-act="search-close" aria-label="Close search">✕</button>
+      </div>
+      <div class="path-bar" part="path-bar" aria-live="polite">
+        <span>path</span><code part="path"></code>
+        <button data-act="copy-path" aria-label="Copy path">⧉</button>
+      </div>
+      <div class="body" part="body" data-mode="tree" role="tree"></div>
+    `;
+
+    /* ----------------------- safe stringify ---------------------------- */
+    // JSON.stringify with BigInt support and a fallback that won't throw.
+    const safeStringify = (v, indent = 2) => {
+      try {
+        return JSON.stringify(v, (_k, val) => (typeof val === 'bigint' ? `${val}n` : val), indent);
+      } catch {
+        try { return String(v); } catch { return ''; }
+      }
+    };
+
+    /* ----------------------- value classification ---------------------- */
+    const kindOf = (v) => {
+      if (v === null) return 'null';
+      const t = typeof v;
+      if (t !== 'object') return t; // string, number, boolean, undefined, bigint, symbol, function
+      if (Array.isArray(v)) return 'array';
+      if (v instanceof Date) return 'date';
+      if (v instanceof RegExp) return 'regexp';
+      if (v instanceof Map) return 'map';
+      if (v instanceof Set) return 'set';
+      return 'object';
+    };
+
+    const isContainer = (k) => k === 'object' || k === 'array' || k === 'map' || k === 'set';
+
+    /* ----------------------- path matching ----------------------------- */
+    // Path segments: ['users', 0, 'name'] -> 'users[0].name'
+    const pathToString = (segs) => {
+      let s = '';
+      for (const seg of segs) {
+        if (typeof seg === 'number') s += `[${seg}]`;
+        else if (/^[A-Za-z_$][\w$]*$/.test(seg)) s += s ? `.${seg}` : seg;
+        else s += `[${JSON.stringify(seg)}]`;
+      }
+      return s || '$';
+    };
+
+    // Glob -> RegExp. ** matches zero or more segments (including none),
+    // * matches a single segment (no dots or brackets).
+    // After regex-escaping (which adds \\ before . and other specials),
+    // we rewrite the `**` patterns using placeholder characters so we can
+    // process them without interference from later replacements.
+    const globToRe = (glob) => {
+      const escaped = glob
+        .replace(/[.+^${}()|[\]\\]/g, '\\$&')   // escape regex specials (dot becomes \.)
+        .replace(/\*\*\\\./g, '\u0001')         // `**.` (escaped form: **\.)
+        .replace(/\\\.\*\*/g, '\u0002')         // `.**` (escaped form: \.**)
+        .replace(/\*\*/g, '\u0003')             // standalone `**`
+        .replace(/\*/g, '[^.\\[\\]]*')          // single-segment wildcard
+        .replace(/\u0001/g, '(?:.*\\.)?')       // **. → optional ".*\."
+        .replace(/\u0002/g, '(?:\\..*)?')       // .** → optional "\..*"
+        .replace(/\u0003/g, '.*');              // **  → ".*"
+      return new RegExp(`^${escaped}$`);
+    };
+
+    const compileMatcher = (matcher) => {
+      if (matcher instanceof RegExp) return (p) => matcher.test(p);
+      if (typeof matcher === 'function') return matcher;
+      if (typeof matcher === 'string') {
+        if (!matcher.includes('*') && !matcher.includes('?')) {
+          return (p) => p === matcher || p.endsWith('.' + matcher) || p.endsWith(']' + matcher);
+        }
+        const re = globToRe(matcher);
+        return (p) => re.test(p);
+      }
+      return () => false;
+    };
+
+    /* ----------------------- rendering --------------------------------- */
+    const MAX_STRING = 200;
+
+    const escapeHtml = (s) =>
+      String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+    const renderPrimitive = (v, kind) => {
+      switch (kind) {
+        case 'string': {
+          const s = String(v);
+          const isUrl = /^https?:\/\//.test(s);
+          if (isUrl) return `<a class="v-string v-url" href="${escapeHtml(s)}" target="_blank" rel="noopener noreferrer">"${escapeHtml(s)}"</a>`;
+          if (s.length > MAX_STRING) {
+            const short = escapeHtml(s.slice(0, MAX_STRING));
+            return `<span class="v-string" data-full="${escapeHtml(s)}">"${short}…<button class="truncated" data-act="expand-string">show ${s.length - MAX_STRING} more</button>"</span>`;
+          }
+          return `<span class="v-string">"${escapeHtml(s)}"</span>`;
+        }
+        case 'number':    return `<span class="v-number">${Number.isFinite(v) ? v : String(v)}</span>`;
+        case 'boolean':   return `<span class="v-boolean">${v}</span>`;
+        case 'null':      return `<span class="v-null">null</span>`;
+        case 'undefined': return `<span class="v-undefined">undefined</span>`;
+        case 'bigint':    return `<span class="v-bigint">${v}n</span>`;
+        case 'symbol':    return `<span class="v-symbol">${escapeHtml(String(v))}</span>`;
+        case 'function':  return `<span class="v-function">ƒ ${escapeHtml(v.name || 'anonymous')}()</span>`;
+        case 'date':      return `<span class="v-date">${escapeHtml(v.toISOString())}</span>`;
+        case 'regexp':    return `<span class="v-regexp">${escapeHtml(String(v))}</span>`;
+        default:          return `<span class="v-undefined">${escapeHtml(String(v))}</span>`;
+      }
+    };
+
+    const containerPreview = (v, kind) => {
+      if (kind === 'array') return `<span class="punct">[</span><span class="size">${v.length}</span><span class="punct">]</span>`;
+      if (kind === 'object') {
+        const n = Object.keys(v).length;
+        return `<span class="punct">{</span><span class="size">${n}</span><span class="punct">}</span>`;
+      }
+      if (kind === 'map') return `<span class="punct">Map(</span><span class="size">${v.size}</span><span class="punct">)</span>`;
+      if (kind === 'set') return `<span class="punct">Set(</span><span class="size">${v.size}</span><span class="punct">)</span>`;
+      return '';
+    };
+
+    /* ============================================================
+     * Element
+     * ============================================================ */
+    class VBJsonViewer extends HTMLElement {
+      static get observedAttributes() {
+        return ['data', 'src', 'expanded', 'mode', 'show-types', 'show-sizes', 'show-indices', 'indent'];
+      }
+
+      constructor() {
+        super();
+        this.attachShadow({ mode: 'open' }).appendChild(TPL.content.cloneNode(true));
+        this._data = undefined;
+        this._refs = {
+          body:     this.shadowRoot.querySelector('.body'),
+          toolbar:  this.shadowRoot.querySelector('.toolbar'),
+          search:   this.shadowRoot.querySelector('.search'),
+          searchIn: this.shadowRoot.querySelector('.search input'),
+          searchCt: this.shadowRoot.querySelector('.search .count'),
+          pathBar:  this.shadowRoot.querySelector('.path-bar'),
+          pathOut:  this.shadowRoot.querySelector('.path-bar code'),
+        };
+        this._renderedSet = new WeakSet(); // <details> elements that have rendered children
+        this._matches = [];                // array of { el } for current search
+        this._matchIdx = -1;
+        this._seen = null;                 // circular ref detection during render
+        this._bindEvents();
+      }
+
+      /* ---------- public properties ---------- */
+      get data() { return this._data; }
+      set data(v) {
+        this._data = v;
+        this.removeAttribute('data'); // property wins over attribute
+        this._render();
+      }
+
+      /* ---------- attribute reactivity ---------- */
+      connectedCallback() {
+        if (this.hasAttribute('src')) this._loadSrc(this.getAttribute('src'));
+        else if (this._data === undefined && this.hasAttribute('data')) {
+          this._parseFromAttr(this.getAttribute('data'));
+        } else if (this._data === undefined) {
+          // try textContent as JSON literal (lets people embed JSON between tags)
+          const txt = this.textContent.trim();
+          if (txt) this._parseFromAttr(txt);
+        }
+        this._render();
+      }
+      attributeChangedCallback(name, _o, v) {
+        if (name === 'data') this._parseFromAttr(v);
+        else if (name === 'src') this._loadSrc(v);
+        else this._render();
+      }
+
+      _parseFromAttr(v) {
+        if (!v) { this._data = undefined; return; }
+        try { this._data = JSON.parse(v); }
+        catch { this._data = v; /* render as a string */ }
+      }
+
+      async _loadSrc(url) {
+        if (!url) return;
+        try {
+          const r = await fetch(url);
+          this._data = await r.json();
+          this._render();
+        } catch (e) {
+          this._data = { error: e.message };
+          this._render();
+        }
+      }
+
+      /* ---------- programmatic API ---------- */
+      expandAll()   { this._walkDetails((el) => { this._ensureRendered(el); el.open = true; }); }
+      collapseAll() { this._walkDetails((el) => { el.open = false; }); }
+      expand(matcher)   { this._matchPaths(matcher, (el) => { this._ensureRendered(el); el.open = true; }); }
+      collapse(matcher) { this._matchPaths(matcher, (el) => { el.open = false; }); }
+
+      async copy(text) {
+        const v = text ?? safeStringify(this._data, this._indent());
+        try { await navigator.clipboard.writeText(v); }
+        catch { /* clipboard may be denied; fail silently */ }
+      }
+
+      // Iterable / iterator for search hits.
+      search(query) {
+        this._runSearch(query);
+        const self = this;
+        return {
+          next: () => {
+            if (!self._matches.length) return { value: undefined, done: true };
+            self._gotoMatch((self._matchIdx + 1) % self._matches.length);
+            return { value: self._matches[self._matchIdx], done: false };
+          },
+          prev: () => {
+            if (!self._matches.length) return { value: undefined, done: true };
+            self._gotoMatch((self._matchIdx - 1 + self._matches.length) % self._matches.length);
+            return { value: self._matches[self._matchIdx], done: false };
+          },
+          [Symbol.iterator]() { return this; }
+        };
+      }
+
+      /* ---------- internals ---------- */
+      _indent() { return Math.max(0, parseInt(this.getAttribute('indent') ?? '2', 10) || 2); }
+      _initialDepth() {
+        const a = this.getAttribute('expanded');
+        if (a === null) return 1;
+        if (a === 'true' || a === '') return Infinity;
+        if (a === 'false') return 0;
+        const n = parseInt(a, 10);
+        return Number.isFinite(n) ? n : 1;
+      }
+      _showTypes()   { return this.hasAttribute('show-types'); }
+      _showSizes()   { return this.hasAttribute('show-sizes'); }
+      _showIndices() { return this.hasAttribute('show-indices'); }
+
+      _walkDetails(fn) {
+        const all = this._refs.body.querySelectorAll('details');
+        all.forEach(fn);
+      }
+
+      _matchPaths(matcher, fn) {
+        const m = compileMatcher(matcher);
+        const all = this._refs.body.querySelectorAll('details[data-path]');
+        all.forEach((el) => { if (m(el.dataset.path)) fn(el); });
+      }
+
+      _render() {
+        this.style.setProperty('--indent', String(this._indent()));
+        const body = this._refs.body;
+        const mode = this.getAttribute('mode') === 'raw' ? 'raw' : 'tree';
+        body.dataset.mode = mode;
+        body.innerHTML = '';
+        this._renderedSet = new WeakSet();
+        this._matches = [];
+        this._matchIdx = -1;
+        this._refs.pathBar.dataset.open = 'false';
+
+        if (this._data === undefined) {
+          body.innerHTML = `<div class="empty">No data. Set <code>.data</code> or attributes <code>data</code> / <code>src</code>.</div>`;
+          return;
+        }
+
+        if (mode === 'raw') {
+          const txt = safeStringify(this._data, this._indent());
+          body.innerHTML = `<pre>${escapeHtml(txt || 'undefined')}</pre>`;
+          return;
+        }
+
+        this._seen = new WeakSet();
+        const initialDepth = this._initialDepth();
+        const root = this._renderNode(this._data, [], 0, initialDepth, null);
+        body.appendChild(root);
+        this._seen = null;
+      }
+
+      // Returns an HTMLElement for one node (li or wrapper).
+      // For containers, expands children up to `initialDepth`; deeper nodes
+      // are rendered on demand when the <details> opens.
+      _renderNode(value, path, depth, initialDepth, keyForLabel) {
+        const kind = kindOf(value);
+
+        if (!isContainer(kind)) {
+          return this._renderLeaf(value, kind, path, keyForLabel);
+        }
+
+        // circular check for plain objects/arrays
+        if ((kind === 'object' || kind === 'array') && this._seen.has(value)) {
+          const li = document.createElement('li');
+          li.innerHTML = `${this._keyLabel(keyForLabel, kind)}<span class="v-ref">[circular]</span>`;
+          return li;
+        }
+        if (kind === 'object' || kind === 'array') this._seen.add(value);
+
+        const det = document.createElement('details');
+        det.dataset.path = pathToString(path);
+        det.dataset.kind = kind;
+        det.setAttribute('role', 'treeitem');
+
+        const sum = document.createElement('summary');
+        sum.innerHTML = `${this._keyLabel(keyForLabel, kind)}${containerPreview(value, kind)}${this._typeChip(kind)}<button class="copy" data-act="copy-subtree" aria-label="Copy this subtree" tabindex="-1">copy</button>`;
+        det.appendChild(sum);
+
+        const ul = document.createElement('ul');
+        ul.setAttribute('role', 'group');
+        det.appendChild(ul);
+
+        const shouldOpen = depth < initialDepth;
+        det.open = shouldOpen;
+
+        if (shouldOpen) {
+          this._renderChildren(value, kind, path, depth, initialDepth, ul);
+          this._renderedSet.add(det);
+        } else {
+          // Defer: render when the <details> opens (once)
+          det.addEventListener('toggle', () => {
+            if (det.open && !this._renderedSet.has(det)) {
+              this._renderChildren(value, kind, path, depth, initialDepth, ul);
+              this._renderedSet.add(det);
+            }
+          }, { once: false });
+        }
+
+        // wrap top-level details into a li-equivalent so callers can append uniformly
+        if (depth === 0) {
+          const wrap = document.createElement('div');
+          wrap.appendChild(det);
+          return wrap;
+        }
+        const li = document.createElement('li');
+        li.appendChild(det);
+        return li;
+      }
+
+      _renderChildren(value, kind, path, depth, initialDepth, ul) {
+        if (kind === 'array') {
+          for (let i = 0; i < value.length; i++) {
+            ul.appendChild(this._renderNode(value[i], path.concat(i), depth + 1, initialDepth, i));
+          }
+        } else if (kind === 'object') {
+          for (const k of Object.keys(value)) {
+            ul.appendChild(this._renderNode(value[k], path.concat(k), depth + 1, initialDepth, k));
+          }
+        } else if (kind === 'map') {
+          let i = 0;
+          for (const [k, v] of value) {
+            ul.appendChild(this._renderNode(v, path.concat(`(${String(k)})`), depth + 1, initialDepth, String(k)));
+            i++;
+          }
+        } else if (kind === 'set') {
+          let i = 0;
+          for (const v of value) {
+            ul.appendChild(this._renderNode(v, path.concat(i), depth + 1, initialDepth, i));
+            i++;
+          }
+        }
+      }
+
+      _renderLeaf(value, kind, path, keyForLabel) {
+        const li = document.createElement('li');
+        li.dataset.path = pathToString(path);
+        li.setAttribute('role', 'treeitem');
+        li.innerHTML = `${this._keyLabel(keyForLabel, kind)}${renderPrimitive(value, kind)}${this._typeChip(kind)}<button class="copy" data-act="copy-leaf" aria-label="Copy value" tabindex="-1">copy</button>`;
+        return li;
+      }
+
+      _keyLabel(keyForLabel, kind) {
+        if (keyForLabel === null || keyForLabel === undefined) return '';
+        const isIndex = typeof keyForLabel === 'number';
+        if (isIndex) {
+          if (!this._showIndices()) return '';
+          return `<span class="index">${keyForLabel}</span><span class="colon">:</span>`;
+        }
+        return `<button class="key" data-act="select-key">"${escapeHtml(keyForLabel)}"</button><span class="colon">:</span>`;
+      }
+
+      _typeChip(kind) {
+        if (!this._showTypes()) return '';
+        return `<span class="type">${kind}</span>`;
+      }
+
+      _ensureRendered(detailsEl) {
+        if (this._renderedSet.has(detailsEl)) return;
+        // Force a toggle-driven render by opening, but children are rendered
+        // by the toggle handler. As a shortcut, just open it: the handler will
+        // populate the ul. (Idempotent because we use _renderedSet.)
+        const wasOpen = detailsEl.open;
+        detailsEl.open = true;
+        if (!this._renderedSet.has(detailsEl)) {
+          // toggle event is async in some envs; trigger sync by walking ancestors
+          detailsEl.dispatchEvent(new Event('toggle'));
+        }
+        if (!wasOpen) {
+          // leave it open since caller is typically expand()
+        }
+      }
+
+      /* ---------- search ---------- */
+      _runSearch(q) {
+        // Clear previous marks
+        this._clearMarks();
+        this._matches = [];
+        this._matchIdx = -1;
+        this._refs.searchCt.textContent = '0/0';
+        if (!q) return;
+
+        const needle = q.toLowerCase();
+        // To find matches across collapsed branches we expand everything first.
+        // This is a deliberate trade-off: simpler and correct, at the cost of a
+        // big DOM grow. For 100k-node JSON this gets expensive; document it.
+        this.expandAll();
+
+        const walker = document.createTreeWalker(this._refs.body, NodeFilter.SHOW_TEXT, {
+          acceptNode: (n) => {
+            if (!n.nodeValue || !n.nodeValue.toLowerCase().includes(needle)) return NodeFilter.FILTER_REJECT;
+            // skip text inside <button.copy> etc.
+            const p = n.parentElement;
+            if (p && (p.classList.contains('size') || p.classList.contains('type') || p.classList.contains('copy') || p.classList.contains('truncated'))) {
+              return NodeFilter.FILTER_REJECT;
+            }
+            return NodeFilter.FILTER_ACCEPT;
+          }
+        });
+
+        const hits = [];
+        let n;
+        while ((n = walker.nextNode())) hits.push(n);
+
+        // Wrap each occurrence in <mark>
+        for (const textNode of hits) {
+          const parent = textNode.parentNode;
+          const text = textNode.nodeValue;
+          const frag = document.createDocumentFragment();
+          let idx = 0;
+          const lower = text.toLowerCase();
+          while (idx < text.length) {
+            const found = lower.indexOf(needle, idx);
+            if (found === -1) {
+              frag.appendChild(document.createTextNode(text.slice(idx)));
+              break;
+            }
+            if (found > idx) frag.appendChild(document.createTextNode(text.slice(idx, found)));
+            const mark = document.createElement('mark');
+            mark.textContent = text.slice(found, found + needle.length);
+            frag.appendChild(mark);
+            this._matches.push({ el: mark });
+            idx = found + needle.length;
+          }
+          parent.replaceChild(frag, textNode);
+        }
+        if (this._matches.length) {
+          this._gotoMatch(0);
+        }
+        this._refs.searchCt.textContent = `${this._matches.length ? this._matchIdx + 1 : 0}/${this._matches.length}`;
+      }
+
+      _gotoMatch(i) {
+        if (!this._matches.length) return;
+        this._matches.forEach((m) => m.el.classList.remove('match-active'));
+        this._matchIdx = i;
+        const m = this._matches[i];
+        m.el.classList.add('match-active');
+        // Make sure ancestor <details> are open
+        let p = m.el.parentElement;
+        while (p && p !== this._refs.body) {
+          if (p.tagName === 'DETAILS') p.open = true;
+          p = p.parentElement;
+        }
+        m.el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        this._refs.searchCt.textContent = `${this._matchIdx + 1}/${this._matches.length}`;
+      }
+
+      _clearMarks() {
+        const marks = this._refs.body.querySelectorAll('mark');
+        marks.forEach((mk) => {
+          const parent = mk.parentNode;
+          parent.replaceChild(document.createTextNode(mk.textContent), mk);
+          parent.normalize();
+        });
+      }
+
+      /* ---------- events ---------- */
+      _bindEvents() {
+        const root = this.shadowRoot;
+
+        root.addEventListener('click', (e) => {
+          const t = e.target.closest('[data-act]');
+          if (!t) return;
+          const act = t.dataset.act;
+
+          if (act === 'expand')         { this.expandAll(); }
+          else if (act === 'collapse')  { this.collapseAll(); }
+          else if (act === 'mode-toggle') {
+            const next = (this.getAttribute('mode') === 'raw') ? 'tree' : 'raw';
+            t.setAttribute('aria-pressed', String(next === 'raw'));
+            this.setAttribute('mode', next);
+          }
+          else if (act === 'copy')      { this.copy(); }
+          else if (act === 'search-toggle') {
+            const open = this._refs.search.dataset.open !== 'true';
+            this._refs.search.dataset.open = String(open);
+            t.setAttribute('aria-pressed', String(open));
+            if (open) requestAnimationFrame(() => this._refs.searchIn.focus());
+            else { this._refs.searchIn.value = ''; this._clearMarks(); this._matches = []; this._refs.searchCt.textContent = '0/0'; }
+          }
+          else if (act === 'search-prev') { this.search(this._refs.searchIn.value).prev(); }
+          else if (act === 'search-next') { this.search(this._refs.searchIn.value).next(); }
+          else if (act === 'search-close') { this._refs.search.dataset.open = 'false'; this._clearMarks(); this._matches = []; this._refs.searchCt.textContent = '0/0'; root.querySelector('[data-act="search-toggle"]').setAttribute('aria-pressed', 'false'); }
+          else if (act === 'copy-path') { this.copy(this._refs.pathOut.textContent); }
+          else if (act === 'copy-subtree') {
+            e.stopPropagation();
+            const det = t.closest('details');
+            const path = det?.dataset.path || '$';
+            const val = this._resolvePath(path);
+            this.copy(safeStringify(val, this._indent()));
+          }
+          else if (act === 'copy-leaf') {
+            e.stopPropagation();
+            const li = t.closest('li');
+            const val = this._resolvePath(li?.dataset.path || '$');
+            const text = (typeof val === 'string') ? val : safeStringify(val);
+            this.copy(text);
+          }
+          else if (act === 'select-key') {
+            e.stopPropagation();
+            const li = t.closest('li, details');
+            const path = li?.dataset.path || '$';
+            this._refs.pathBar.dataset.open = 'true';
+            this._refs.pathOut.textContent = path;
+            this.dispatchEvent(new CustomEvent('json-viewer:keyclick', {
+              bubbles: true, composed: true,
+              detail: { path, key: t.textContent.replace(/^"|"$/g, ''), value: this._resolvePath(path) }
+            }));
+          }
+          else if (act === 'expand-string') {
+            e.stopPropagation();
+            const span = t.closest('.v-string');
+            if (span?.dataset.full) span.innerHTML = `"${escapeHtml(span.dataset.full)}"`;
+          }
+        });
+
+        // Search input
+        let debounce;
+        this._refs.searchIn.addEventListener('input', (e) => {
+          clearTimeout(debounce);
+          debounce = setTimeout(() => this._runSearch(e.target.value), 120);
+        });
+        this._refs.searchIn.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            const it = this.search(this._refs.searchIn.value);
+            e.shiftKey ? it.prev() : it.next();
+          } else if (e.key === 'Escape') {
+            this._refs.search.dataset.open = 'false';
+            this._clearMarks(); this._matches = [];
+            root.querySelector('[data-act="search-toggle"]').setAttribute('aria-pressed', 'false');
+          }
+        });
+
+        // value click event
+        root.addEventListener('click', (e) => {
+          const leaf = e.target.closest('[class^="v-"], [class*=" v-"]');
+          if (!leaf) return;
+          const host = leaf.closest('li, summary');
+          if (!host) return;
+          const carrier = host.closest('details, li');
+          const path = carrier?.dataset.path || '$';
+          this.dispatchEvent(new CustomEvent('json-viewer:valueclick', {
+            bubbles: true, composed: true,
+            detail: { path, value: this._resolvePath(path), type: kindOf(this._resolvePath(path)) }
+          }));
+        });
+
+        // keyboard shortcut: '/' to open search when focus is inside component
+        this.addEventListener('keydown', (e) => {
+          if (e.key === '/' && document.activeElement !== this._refs.searchIn && !e.metaKey && !e.ctrlKey) {
+            e.preventDefault();
+            this._refs.search.dataset.open = 'true';
+            this._refs.searchIn.focus();
+            root.querySelector('[data-act="search-toggle"]').setAttribute('aria-pressed', 'true');
+          }
+        });
+      }
+
+      _resolvePath(path) {
+        if (!path || path === '$') return this._data;
+        // simple resolver: a.b[0].c
+        let cur = this._data;
+        const tokens = [];
+        const re = /([^.[\]"]+)|\[(\d+)\]|\["([^"]*)"\]/g;
+        let m;
+        while ((m = re.exec(path)) !== null) {
+          if (m[2] !== undefined) tokens.push(Number(m[2]));
+          else if (m[3] !== undefined) tokens.push(m[3]);
+          else tokens.push(m[1]);
+        }
+        for (const t of tokens) {
+          if (cur == null) return undefined;
+          cur = cur[t];
+        }
+        return cur;
+      }
+    }
+
+    customElements.define('json-viewer', VBJsonViewer);
+  })();
+
+  /* =====================================================================
+   * Demo wiring
+   * ===================================================================== */
+  const viewer = document.getElementById('viewer');
+
+  const samples = {
+    api: {
+      status: "ok",
+      requestId: "req_8c4f12a9-2b88-49ee-8d1a-9c3b7f5e0a2d",
+      timestamp: "2026-05-11T14:32:08.221Z",
+      user: {
+        id: 4710,
+        name: "Ada Lovelace",
+        email: "ada@example.com",
+        roles: ["admin", "engineer"],
+        active: true,
+        lastLogin: new Date("2026-05-10T22:18:00Z"),
+        preferences: { theme: "system", density: "comfortable", notifications: { email: true, push: false, sms: null } }
+      },
+      data: {
+        items: [
+          { id: 1, name: "Item α", price: 12.5, tags: ["new", "sale"] },
+          { id: 2, name: "Item β", price: 0,    tags: [] },
+          { id: 3, name: "Item γ", price: 9999.99, tags: ["limited"], homepage: "https://example.com/g" }
+        ],
+        meta: { page: 1, perPage: 25, total: 3, hasMore: false }
+      },
+      errors: null
+    },
+    config: {
+      $schema: "https://vanilla-breeze.com/schemas/config.json",
+      name: "vanilla-breeze",
+      version: "0.4.2",
+      compatibility: { browsers: ["chrome >= 110", "safari >= 16", "firefox >= 115"], node: ">=18" },
+      build: { entry: "./src/index.js", outDir: "./dist", minify: true, sourcemap: "inline" },
+      features: { servicewWorkerAssembly: true, dataOnEvents: true, brandReplicator: false }
+    },
+    nested: (() => {
+      let n = "leaf";
+      for (let i = 12; i >= 0; i--) n = { ["level_" + i]: n, sibling: i % 3 === 0 ? [i, i * 2, i * 3] : null };
+      return n;
+    })(),
+    array: { items: Array.from({ length: 200 }, (_, i) => ({ id: i, name: `Row ${i}`, value: Math.round(Math.random() * 10000) / 100, active: i % 4 !== 0 })) },
+    exotic: {
+      string: "hello",
+      multilineString: "line one\nline two\nline three with a very long part: " + "x".repeat(300),
+      number: 42,
+      bigNumber: 9007199254740993n,
+      float: 3.14159265358979,
+      negZero: -0,
+      infinity: Infinity,
+      nan: NaN,
+      bool: true,
+      nothing: null,
+      missing: undefined,
+      date: new Date(),
+      regex: /^([a-z]+)\.([a-z]+)$/i,
+      fn: function namedFn() {},
+      arrow: () => 1,
+      url: "https://anthropic.com",
+      set: new Set([1, 2, 3]),
+      map: new Map([["a", 1], ["b", 2]]),
+      nested: { circular: null }
+    },
+    huge: (() => {
+      const o = {};
+      for (let i = 0; i < 2000; i++) o["key_" + i] = { i, name: `item_${i}`, tags: ["t" + (i % 7)] };
+      return o;
+    })()
+  };
+  samples.exotic.nested.circular = samples.exotic;
+
+  function load(key) {
+    viewer.data = samples[key];
+  }
+
+  document.getElementById('dataset-select').addEventListener('change', (e) => load(e.target.value));
+  document.getElementById('depth-input').addEventListener('input', (e) => {
+    const v = parseInt(e.target.value, 10);
+    if (Number.isFinite(v)) viewer.setAttribute('expanded', String(v));
+  });
+  document.getElementById('types-toggle').addEventListener('change', (e) => {
+    e.target.checked ? viewer.setAttribute('show-types', '') : viewer.removeAttribute('show-types');
+  });
+  document.getElementById('sizes-toggle').addEventListener('change', (e) => {
+    e.target.checked ? viewer.setAttribute('show-sizes', '') : viewer.removeAttribute('show-sizes');
+  });
+  document.getElementById('indices-toggle').addEventListener('change', (e) => {
+    e.target.checked ? viewer.setAttribute('show-indices', '') : viewer.removeAttribute('show-indices');
+  });
+  document.getElementById('theme-warm').addEventListener('click', (e) => {
+    const on = document.body.dataset.vbTheme === 'warm';
+    document.body.dataset.vbTheme = on ? '' : 'warm';
+    e.target.textContent = on ? 'Swap theme tokens' : 'Default theme';
+  });
+  document.getElementById('expand-all').addEventListener('click', () => viewer.expandAll());
+  document.getElementById('collapse-all').addEventListener('click', () => viewer.collapseAll());
+
+  // Log events to console for demo
+  viewer.addEventListener('json-viewer:keyclick', (e) => console.log('json-viewer:keyclick', e.detail));
+  viewer.addEventListener('json-viewer:valueclick', (e) => console.log('json-viewer:valueclick', e.detail));
+
+  // Initial load
+  load('api');
+  </script>
+</body>
+</html>

@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>json-viewer · demo</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --page-bg: light-dark(#fafaf9, #18181b);
+      --page-fg: light-dark(#1c1917, #f4f4f5);
+      --page-muted: light-dark(#71717a, #a1a1aa);
+      --page-border: light-dark(#e7e5e4, #3f3f46);
+      --page-surface: light-dark(#ffffff, #27272a);
+      --page-accent: light-dark(#0f766e, #2dd4bf);
+    }
+    body {
+      font-family: ui-sans-serif, system-ui, sans-serif;
+      background: var(--page-bg);
+      color: var(--page-fg);
+      margin: 0;
+      padding: clamp(0.75rem, 2vw, 2rem);
+      max-width: 80rem;
+      margin-inline: auto;
+      line-height: 1.5;
+    }
+    h1 { letter-spacing: -0.02em; margin: 0 0 0.5rem; }
+    .lede { color: var(--page-muted); max-width: 60ch; margin: 0 0 1.5rem; }
+    .controls {
+      display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center;
+      padding: 0.75rem;
+      background: var(--page-surface);
+      border: 1px solid var(--page-border);
+      border-radius: 0.75rem;
+      margin-bottom: 1rem;
+    }
+    .controls select, .controls input[type="number"], .controls button {
+      font: inherit; font-size: 0.875rem;
+      padding: 0.375rem 0.625rem;
+      border: 1px solid var(--page-border);
+      border-radius: 0.375rem;
+      background: var(--page-bg);
+      color: inherit;
+    }
+    .controls button { cursor: pointer; }
+    .controls label { font-size: 0.875rem; color: var(--page-muted); display: inline-flex; gap: 0.375rem; align-items: center; }
+    body[data-vb-theme="warm"] json-viewer {
+      --vb-json-key: #b91c1c;
+      --vb-json-string: #b45309;
+      --vb-json-number: #1d4ed8;
+      --vb-accent: #ea580c;
+    }
+  </style>
+</head>
+<body>
+  <h1>&lt;json-viewer&gt;</h1>
+  <p class="lede">
+    Demo harness. Imports the component as an ES module and exercises every attribute,
+    method, and event. Resize the window narrow to see the mobile toolbar collapse.
+  </p>
+
+  <div class="controls" role="toolbar">
+    <label>Dataset
+      <select id="dataset-select">
+        <option value="api">API response</option>
+        <option value="config">Config file</option>
+        <option value="nested">Deeply nested</option>
+        <option value="array">Array (200 items)</option>
+        <option value="exotic">Exotic types</option>
+        <option value="huge">Huge (~2000 keys)</option>
+      </select>
+    </label>
+    <label>Depth <input id="depth-input" type="number" min="0" max="20" value="2" /></label>
+    <label><input id="types-toggle" type="checkbox" /> types</label>
+    <label><input id="sizes-toggle" type="checkbox" checked /> sizes</label>
+    <label><input id="indices-toggle" type="checkbox" checked /> indices</label>
+    <button id="theme-warm">Swap theme tokens</button>
+    <button id="expand-all">Expand all</button>
+    <button id="collapse-all">Collapse all</button>
+    <button id="expand-users">expand('user.**')</button>
+  </div>
+
+  <json-viewer id="viewer" expanded="2" show-sizes show-indices></json-viewer>
+
+  <script type="module">
+    import '../src/json-viewer.js';
+
+    const viewer = document.getElementById('viewer');
+
+    const samples = {
+      api: {
+        status: "ok",
+        requestId: "req_8c4f12a9-2b88-49ee-8d1a-9c3b7f5e0a2d",
+        timestamp: "2026-05-11T14:32:08.221Z",
+        user: {
+          id: 4710, name: "Ada Lovelace", email: "ada@example.com",
+          roles: ["admin", "engineer"], active: true,
+          lastLogin: new Date("2026-05-10T22:18:00Z"),
+          preferences: { theme: "system", density: "comfortable",
+            notifications: { email: true, push: false, sms: null } }
+        },
+        data: {
+          items: [
+            { id: 1, name: "Item α", price: 12.5, tags: ["new", "sale"] },
+            { id: 2, name: "Item β", price: 0, tags: [] },
+            { id: 3, name: "Item γ", price: 9999.99, tags: ["limited"], homepage: "https://example.com/g" }
+          ],
+          meta: { page: 1, perPage: 25, total: 3, hasMore: false }
+        },
+        errors: null
+      },
+      config: {
+        $schema: "https://vanilla-breeze.com/schemas/config.json",
+        name: "vanilla-breeze", version: "0.4.2",
+        compatibility: { browsers: ["chrome >= 110", "safari >= 16", "firefox >= 115"], node: ">=18" },
+        build: { entry: "./src/index.js", outDir: "./dist", minify: true, sourcemap: "inline" },
+        features: { serviceWorkerAssembly: true, dataOnEvents: true, brandReplicator: false }
+      },
+      nested: (() => {
+        let n = "leaf";
+        for (let i = 12; i >= 0; i--) n = { ["level_" + i]: n, sibling: i % 3 === 0 ? [i, i*2, i*3] : null };
+        return n;
+      })(),
+      array: { items: Array.from({ length: 200 }, (_, i) =>
+        ({ id: i, name: `Row ${i}`, value: Math.round(Math.random()*10000)/100, active: i % 4 !== 0 })) },
+      exotic: {
+        string: "hello",
+        multilineString: "line one\nline two\nline three: " + "x".repeat(300),
+        number: 42,
+        bigNumber: 9007199254740993n,
+        float: 3.14159265358979,
+        negZero: -0, infinity: Infinity, nan: NaN,
+        bool: true, nothing: null, missing: undefined,
+        date: new Date(), regex: /^([a-z]+)\.([a-z]+)$/i,
+        fn: function namedFn() {}, arrow: () => 1,
+        url: "https://anthropic.com",
+        set: new Set([1, 2, 3]), map: new Map([["a", 1], ["b", 2]]),
+        nested: { circular: null }
+      },
+      huge: (() => {
+        const o = {};
+        for (let i = 0; i < 2000; i++) o["key_" + i] = { i, name: `item_${i}`, tags: ["t" + (i % 7)] };
+        return o;
+      })()
+    };
+    samples.exotic.nested.circular = samples.exotic;
+
+    const load = (k) => { viewer.data = samples[k]; };
+
+    document.getElementById('dataset-select').addEventListener('change', e => load(e.target.value));
+    document.getElementById('depth-input').addEventListener('input', e => {
+      const v = parseInt(e.target.value, 10);
+      if (Number.isFinite(v)) viewer.setAttribute('expanded', String(v));
+    });
+    document.getElementById('types-toggle').addEventListener('change', e =>
+      e.target.checked ? viewer.setAttribute('show-types', '') : viewer.removeAttribute('show-types'));
+    document.getElementById('sizes-toggle').addEventListener('change', e =>
+      e.target.checked ? viewer.setAttribute('show-sizes', '') : viewer.removeAttribute('show-sizes'));
+    document.getElementById('indices-toggle').addEventListener('change', e =>
+      e.target.checked ? viewer.setAttribute('show-indices', '') : viewer.removeAttribute('show-indices'));
+    document.getElementById('theme-warm').addEventListener('click', e => {
+      const on = document.body.dataset.vbTheme === 'warm';
+      document.body.dataset.vbTheme = on ? '' : 'warm';
+      e.target.textContent = on ? 'Swap theme tokens' : 'Default theme';
+    });
+    document.getElementById('expand-all').addEventListener('click', () => viewer.expandAll());
+    document.getElementById('collapse-all').addEventListener('click', () => viewer.collapseAll());
+    document.getElementById('expand-users').addEventListener('click', () => viewer.expand('user.**'));
+
+    viewer.addEventListener('json-viewer:keyclick',   e => console.log('json-viewer:keyclick',   e.detail));
+    viewer.addEventListener('json-viewer:valueclick', e => console.log('json-viewer:valueclick', e.detail));
+
+    load('api');
+  </script>
+</body>
+</html>
