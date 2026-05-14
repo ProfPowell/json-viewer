@@ -306,15 +306,31 @@ const kindOf = (v) => {
 const isContainer = (k) => k === 'object' || k === 'array' || k === 'map' || k === 'set';
 
 /* ----------------------- path matching ----------------------------- */
-// Path segments: ['users', 0, 'name'] -> 'users[0].name'
+// Path segments: ['users', 0, { kind: 'entry', index: 2 }, 'name']
+//   -> 'users[0]@2.name'
 const pathToString = (segs) => {
   let s = '';
   for (const seg of segs) {
-    if (typeof seg === 'number') s += `[${seg}]`;
+    if (typeof seg === 'object' && seg && seg.kind === 'entry') s += `@${seg.index}`;
+    else if (typeof seg === 'number') s += `[${seg}]`;
     else if (/^[A-Za-z_$][\w$]*$/.test(seg)) s += s ? `.${seg}` : seg;
     else s += `[${JSON.stringify(seg)}]`;
   }
   return s || '$';
+};
+
+const parsePath = (s) => {
+  if (!s || s === '$') return [];
+  const segs = [];
+  const re = /([A-Za-z_$][\w$]*)|\[(\d+)\]|\["([^"]*)"\]|@(\d+)/g;
+  let m;
+  while ((m = re.exec(s)) !== null) {
+    if (m[4] !== undefined) segs.push({ kind: 'entry', index: Number(m[4]) });
+    else if (m[2] !== undefined) segs.push(Number(m[2]));
+    else if (m[3] !== undefined) segs.push(m[3]);
+    else segs.push(m[1]);
+  }
+  return segs;
 };
 
 // Glob -> RegExp. ** matches zero or more segments (including none),
@@ -412,6 +428,7 @@ class JsonViewer extends HTMLElement {
       pathOut:  this.shadowRoot.querySelector('.path-bar code'),
     };
     this._renderedSet = new WeakSet(); // <details> elements that have rendered children
+    this._entryMap = new WeakMap();    // <details>/<li> -> { key, value } for Map/Set entries
     this._matches = [];                // array of { el } for current search
     this._matchIdx = -1;
     this._seen = null;                 // circular ref detection during render
@@ -467,6 +484,37 @@ class JsonViewer extends HTMLElement {
   collapseAll() { this._walkDetails((el) => { el.open = false; }); }
   expand(matcher)   { this._matchPaths(matcher, (el) => { this._ensureRendered(el); el.open = true; }); }
   collapse(matcher) { this._matchPaths(matcher, (el) => { el.open = false; }); }
+
+  // Returns { key, value } for any path. Useful for Map/Set entries where the
+  // key isn't a string and round-tripping through `_resolvePath` would lose it.
+  entryAt(path) {
+    if (!path || path === '$') return { key: null, value: this._data };
+    const tokens = parsePath(path);
+    let cur = this._data;
+    let lastKey = null;
+    for (const t of tokens) {
+      if (cur == null) return { key: null, value: undefined };
+      if (typeof t === 'object' && t && t.kind === 'entry') {
+        if (cur instanceof Map) {
+          const entries = [...cur.entries()];
+          const entry = entries[t.index];
+          if (!entry) return { key: null, value: undefined };
+          lastKey = entry[0];
+          cur = entry[1];
+        } else if (cur instanceof Set) {
+          const arr = [...cur];
+          lastKey = t.index;
+          cur = arr[t.index];
+        } else {
+          return { key: null, value: undefined };
+        }
+      } else {
+        lastKey = t;
+        cur = cur[t];
+      }
+    }
+    return { key: lastKey, value: cur };
+  }
 
   async copy(text) {
     const v = text ?? safeStringify(this._data, this._indent());
@@ -525,6 +573,7 @@ class JsonViewer extends HTMLElement {
     body.dataset.mode = mode;
     body.innerHTML = '';
     this._renderedSet = new WeakSet();
+    this._entryMap = new WeakMap();
     this._matches = [];
     this._matchIdx = -1;
     this._refs.pathBar.dataset.open = 'false';
@@ -617,13 +666,28 @@ class JsonViewer extends HTMLElement {
     } else if (kind === 'map') {
       let i = 0;
       for (const [k, v] of value) {
-        ul.appendChild(this._renderNode(v, path.concat(`(${String(k)})`), depth + 1, initialDepth, String(k)));
+        const seg = { kind: 'entry', index: i };
+        const child = this._renderNode(v, path.concat(seg), depth + 1, initialDepth, String(k));
+        // Register the real key on the DOM element for entryAt() recovery
+        const det = child.querySelector('details') || child.querySelector('li') || child;
+        if (det) {
+          det.dataset.entryIndex = String(i);
+          this._entryMap.set(det, { key: k, value: v });
+        }
+        ul.appendChild(child);
         i++;
       }
     } else if (kind === 'set') {
       let i = 0;
       for (const v of value) {
-        ul.appendChild(this._renderNode(v, path.concat(i), depth + 1, initialDepth, i));
+        const seg = { kind: 'entry', index: i };
+        const child = this._renderNode(v, path.concat(seg), depth + 1, initialDepth, null);
+        const det = child.querySelector('details') || child.querySelector('li') || child;
+        if (det) {
+          det.dataset.entryIndex = String(i);
+          this._entryMap.set(det, { key: undefined, value: v });
+        }
+        ul.appendChild(child);
         i++;
       }
     }
@@ -857,19 +921,22 @@ class JsonViewer extends HTMLElement {
 
   _resolvePath(path) {
     if (!path || path === '$') return this._data;
-    // simple resolver: a.b[0].c
+    const tokens = parsePath(path);
     let cur = this._data;
-    const tokens = [];
-    const re = /([^.[\]"]+)|\[(\d+)\]|\["([^"]*)"\]/g;
-    let m;
-    while ((m = re.exec(path)) !== null) {
-      if (m[2] !== undefined) tokens.push(Number(m[2]));
-      else if (m[3] !== undefined) tokens.push(m[3]);
-      else tokens.push(m[1]);
-    }
     for (const t of tokens) {
       if (cur == null) return undefined;
-      cur = cur[t];
+      if (typeof t === 'object' && t && t.kind === 'entry') {
+        if (cur instanceof Map) {
+          const entries = [...cur.entries()];
+          cur = entries[t.index]?.[1];
+        } else if (cur instanceof Set) {
+          cur = [...cur][t.index];
+        } else {
+          return undefined;
+        }
+      } else {
+        cur = cur[t];
+      }
     }
     return cur;
   }
