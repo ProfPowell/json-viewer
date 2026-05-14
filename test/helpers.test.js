@@ -147,3 +147,103 @@ test('parsePath: round-trip Map entry', () => {
   const original = ['cache', { kind: 'entry', index: 3 }, 'name']
   assert.deepEqual(parsePath(pathToStringV2(original)), original)
 })
+
+// ---------- buildRecords (Phase C) ----------
+const buildRecords = (value, basePath = []) => {
+  const out = []
+  const visit = (v, segs) => {
+    const path = pathToStringV2(segs)
+    const k = kindOf(v)
+    const lastSeg = segs[segs.length - 1]
+    const keyText =
+      lastSeg && typeof lastSeg === 'object' && lastSeg.kind === 'entry' ? `@${lastSeg.index}` :
+      typeof lastSeg === 'number' ? `[${lastSeg}]` :
+      lastSeg === undefined ? '' : String(lastSeg)
+    if (k === 'object') {
+      out.push({ path, keyText, valueText: '', kind: k })
+      for (const key of Object.keys(v)) visit(v[key], segs.concat(key))
+    } else if (k === 'array') {
+      out.push({ path, keyText, valueText: '', kind: k })
+      for (let i = 0; i < v.length; i++) visit(v[i], segs.concat(i))
+    } else if (k === 'map') {
+      out.push({ path, keyText, valueText: '', kind: k })
+      let i = 0
+      for (const [, val] of v) {
+        visit(val, segs.concat({ kind: 'entry', index: i }))
+        i++
+      }
+    } else if (k === 'set') {
+      out.push({ path, keyText, valueText: '', kind: k })
+      let i = 0
+      for (const val of v) {
+        visit(val, segs.concat({ kind: 'entry', index: i }))
+        i++
+      }
+    } else {
+      out.push({ path, keyText, valueText: String(v ?? ''), kind: k })
+    }
+  }
+  visit(value, basePath)
+  return out
+}
+
+test('buildRecords: simple object yields container + leaves', () => {
+  const recs = buildRecords({ a: 1, b: 'hi' })
+  const paths = recs.map(r => r.path)
+  assert.deepEqual(paths, ['$', 'a', 'b'])
+  assert.equal(recs[1].valueText, '1')
+  assert.equal(recs[2].valueText, 'hi')
+})
+
+test('buildRecords: array indices', () => {
+  const recs = buildRecords({ xs: [10, 20] })
+  assert.deepEqual(recs.map(r => r.path), ['$', 'xs', 'xs[0]', 'xs[1]'])
+})
+
+test('buildRecords: Map uses @<i> segments', () => {
+  const m = new Map([['k', 'v']])
+  const recs = buildRecords({ cache: m })
+  assert.ok(recs.some(r => r.path === 'cache@0'))
+})
+
+// ---------- filterRecords (substring + regex) ----------
+const filterRecords = (records, query, { regex = false, caseSensitive = false } = {}) => {
+  if (!query) return []
+  const re = regex ? new RegExp(query, caseSensitive ? '' : 'i') : null
+  const match = re
+    ? (s) => re.test(s)
+    : (s) => caseSensitive ? s.includes(query) : s.toLowerCase().includes(query.toLowerCase())
+  return records.filter(r => match(r.keyText) || match(r.valueText))
+}
+
+test('filterRecords: substring matches key', () => {
+  const recs = buildRecords({ username: 'ada', age: 30 })
+  const hits = filterRecords(recs, 'user')
+  assert.equal(hits.length, 1)
+  assert.equal(hits[0].path, 'username')
+})
+
+test('filterRecords: substring matches value', () => {
+  const recs = buildRecords({ a: 'apple', b: 'banana' })
+  const hits = filterRecords(recs, 'apple')
+  assert.equal(hits.length, 1)
+  assert.equal(hits[0].path, 'a')
+})
+
+test('filterRecords: case-insensitive by default', () => {
+  const recs = buildRecords({ Name: 'Ada' })
+  const hits = filterRecords(recs, 'ada')
+  assert.equal(hits.length, 1)
+})
+
+test('filterRecords: regex mode', () => {
+  const recs = buildRecords({ x: 'abc123', y: 'def' })
+  const hits = filterRecords(recs, '^abc\\d+$', { regex: true })
+  assert.equal(hits.length, 1)
+  assert.equal(hits[0].path, 'x')
+})
+
+test('filterRecords: empty query returns empty', () => {
+  const recs = buildRecords({ a: 1 })
+  assert.deepEqual(filterRecords(recs, ''), [])
+})
