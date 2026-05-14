@@ -151,6 +151,7 @@ test('parsePath: round-trip Map entry', () => {
 // ---------- buildRecords (Phase C) ----------
 const buildRecords = (value, basePath = []) => {
   const out = []
+  const seen = new WeakSet()
   const visit = (v, segs) => {
     const path = pathToStringV2(segs)
     const k = kindOf(v)
@@ -159,6 +160,10 @@ const buildRecords = (value, basePath = []) => {
       lastSeg && typeof lastSeg === 'object' && lastSeg.kind === 'entry' ? `@${lastSeg.index}` :
       typeof lastSeg === 'number' ? `[${lastSeg}]` :
       lastSeg === undefined ? '' : String(lastSeg)
+    if (k === 'object' || k === 'array' || k === 'map' || k === 'set') {
+      if (seen.has(v)) { out.push({ path, keyText, valueText: '[circular]', kind: k }); return }
+      seen.add(v)
+    }
     if (k === 'object') {
       out.push({ path, keyText, valueText: '', kind: k })
       for (const key of Object.keys(v)) visit(v[key], segs.concat(key))
@@ -204,6 +209,14 @@ test('buildRecords: Map uses @<i> segments', () => {
   const m = new Map([['k', 'v']])
   const recs = buildRecords({ cache: m })
   assert.ok(recs.some(r => r.path === 'cache@0'))
+})
+
+test('buildRecords: terminates on circular references', () => {
+  const a = { name: 'a' }
+  a.self = a
+  // Without the seen-guard this would stack-overflow. We just assert it returns.
+  const recs = buildRecords(a)
+  assert.ok(recs.some(r => r.valueText === '[circular]'))
 })
 
 // ---------- filterRecords (substring + regex) ----------

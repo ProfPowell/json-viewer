@@ -368,6 +368,7 @@ const compileMatcher = (matcher) => {
 // Walks the JS value, returns flat records for search.
 const buildRecords = (value, basePath = []) => {
   const out = [];
+  const seen = new WeakSet();      // circular-ref guard (parity with _renderNode)
   const visit = (v, segs) => {
     const path = pathToString(segs);
     const k = kindOf(v);
@@ -376,6 +377,14 @@ const buildRecords = (value, basePath = []) => {
       lastSeg && typeof lastSeg === 'object' && lastSeg.kind === 'entry' ? `@${lastSeg.index}` :
       typeof lastSeg === 'number' ? `[${lastSeg}]` :
       lastSeg === undefined ? '' : String(lastSeg);
+    if (k === 'object' || k === 'array' || k === 'map' || k === 'set') {
+      if (seen.has(v)) {
+        // Record the back-edge but don't recurse — protects against stack overflow.
+        out.push({ path, keyText, valueText: '[circular]', kind: k });
+        return;
+      }
+      seen.add(v);
+    }
     if (k === 'object') {
       out.push({ path, keyText, valueText: '', kind: k });
       for (const key of Object.keys(v)) visit(v[key], segs.concat(key));

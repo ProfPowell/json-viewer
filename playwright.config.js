@@ -10,7 +10,8 @@ export default defineConfig({
   reporter: 'html',
   use: {
     baseURL: 'http://localhost:5174',
-    trace: 'on-first-retry'
+    trace: 'on-first-retry',
+    permissions: ['clipboard-read', 'clipboard-write']
   },
   webServer: {
     command: 'npx vite --port 5174',

@@ -66,5 +66,50 @@
     ev.addEventListener('json-viewer:valueclick', (e) => window.__events.push({ kind: 'valueclick', detail: e.detail }))
     window.__eventEl = ev
   </script>
+
+  <!-- Copy-button harness with BigInt to verify safeStringify -->
+  <json-viewer id="copy-viewer" expanded="2"></json-viewer>
+  <script type="module">
+    const cv = document.getElementById('copy-viewer');
+    cv.data = { id: 'abc', big: 9007199254740993n, items: [1, 2, 3] };
+    window.__cv = cv;
+  </script>
+
+  <!-- Token-contract harness; tests override --json-viewer-accent and --vb-accent -->
+  <json-viewer id="token-viewer" expanded="2"></json-viewer>
+  <script type="module">
+    const tv = document.getElementById('token-viewer');
+    tv.data = { foo: 'bar', baz: 'qux' };
+    window.__tv = tv;
+  </script>
+
+  <!-- Exotic-types harness; can't be a JSON file because of BigInt/Date/etc. -->
+  <json-viewer id="exotic-viewer" expanded="3" show-types></json-viewer>
+  <script type="module">
+    const xv = document.getElementById('exotic-viewer');
+    const circ = { name: 'loop' };
+    circ.self = circ;
+    xv.data = {
+      bigint: 42n,
+      date: new Date('2024-01-15T00:00:00Z'),
+      regexp: /abc\d+/gi,
+      func: function namedFn() {},
+      mapWithObjKey: new Map([[{ id: 'k' }, 'v']]),
+      mySet: new Set(['a', 'b']),
+      circular: circ
+    };
+    window.__xv = xv;
+  </script>
+
+  <!-- Huge-data harness for the perf bound test -->
+  <json-viewer id="huge-viewer" expanded="1"></json-viewer>
+  <script type="module">
+    const hv = document.getElementById('huge-viewer');
+    const big = {};
+    for (let i = 0; i < 2000; i++) big[`key_${i}`] = i;
+    window.__hugeData = big;
+    window.__hugeEl = hv;
+    // Render is deferred to the test so it can time it
+  </script>
 </body>
 </html>
