@@ -689,13 +689,16 @@ class JsonViewer extends HTMLElement {
       this._renderChildren(value, kind, path, depth, initialDepth, ul);
       this._renderedSet.add(det);
     } else {
-      // Defer: render when the <details> opens (once)
+      // Defer: render children the first time the <details> opens. The
+      // `once: true` option auto-removes the listener after it fires, so
+      // N lazy nodes don't leave N permanent listeners on the tree. The
+      // _renderedSet guard remains as a safety net against re-entry.
       det.addEventListener('toggle', () => {
         if (det.open && !this._renderedSet.has(det)) {
           this._renderChildren(value, kind, path, depth, initialDepth, ul);
           this._renderedSet.add(det);
         }
-      }, { once: false });
+      }, { once: true });
     }
 
     // wrap top-level details into a li-equivalent so callers can append uniformly
