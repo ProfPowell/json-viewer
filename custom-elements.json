@@ -1,0 +1,433 @@
+{
+  "schemaVersion": "1.0.0",
+  "readme": "",
+  "modules": [
+    {
+      "kind": "javascript-module",
+      "path": "src/json-viewer.js",
+      "declarations": [
+        {
+          "kind": "class",
+          "description": "",
+          "name": "JsonViewer",
+          "members": [
+            {
+              "kind": "field",
+              "name": "data"
+            },
+            {
+              "kind": "method",
+              "name": "_parseFromAttr",
+              "parameters": [
+                {
+                  "name": "v"
+                }
+              ]
+            },
+            {
+              "kind": "method",
+              "name": "_loadSrc",
+              "parameters": [
+                {
+                  "name": "url"
+                }
+              ]
+            },
+            {
+              "kind": "method",
+              "name": "expandAll"
+            },
+            {
+              "kind": "method",
+              "name": "collapseAll"
+            },
+            {
+              "kind": "method",
+              "name": "expand",
+              "parameters": [
+                {
+                  "name": "matcher"
+                }
+              ]
+            },
+            {
+              "kind": "method",
+              "name": "collapse",
+              "parameters": [
+                {
+                  "name": "matcher"
+                }
+              ]
+            },
+            {
+              "kind": "method",
+              "name": "entryAt",
+              "parameters": [
+                {
+                  "name": "path"
+                }
+              ]
+            },
+            {
+              "kind": "method",
+              "name": "copy",
+              "parameters": [
+                {
+                  "name": "text"
+                }
+              ]
+            },
+            {
+              "kind": "method",
+              "name": "search",
+              "parameters": [
+                {
+                  "name": "query"
+                },
+                {
+                  "name": "options",
+                  "default": "{}"
+                }
+              ]
+            },
+            {
+              "kind": "method",
+              "name": "_indent"
+            },
+            {
+              "kind": "method",
+              "name": "_initialDepth"
+            },
+            {
+              "kind": "method",
+              "name": "_showTypes"
+            },
+            {
+              "kind": "method",
+              "name": "_showSizes"
+            },
+            {
+              "kind": "method",
+              "name": "_showIndices"
+            },
+            {
+              "kind": "method",
+              "name": "_walkDetails",
+              "parameters": [
+                {
+                  "name": "fn"
+                }
+              ]
+            },
+            {
+              "kind": "method",
+              "name": "_matchPaths",
+              "parameters": [
+                {
+                  "name": "matcher"
+                },
+                {
+                  "name": "fn"
+                }
+              ]
+            },
+            {
+              "kind": "method",
+              "name": "_render"
+            },
+            {
+              "kind": "method",
+              "name": "_renderNode",
+              "parameters": [
+                {
+                  "name": "value"
+                },
+                {
+                  "name": "path"
+                },
+                {
+                  "name": "depth"
+                },
+                {
+                  "name": "initialDepth"
+                },
+                {
+                  "name": "keyForLabel"
+                }
+              ]
+            },
+            {
+              "kind": "method",
+              "name": "_renderChildren",
+              "parameters": [
+                {
+                  "name": "value"
+                },
+                {
+                  "name": "kind"
+                },
+                {
+                  "name": "path"
+                },
+                {
+                  "name": "depth"
+                },
+                {
+                  "name": "initialDepth"
+                },
+                {
+                  "name": "ul"
+                }
+              ]
+            },
+            {
+              "kind": "method",
+              "name": "_renderLeaf",
+              "parameters": [
+                {
+                  "name": "value"
+                },
+                {
+                  "name": "kind"
+                },
+                {
+                  "name": "path"
+                },
+                {
+                  "name": "keyForLabel"
+                }
+              ]
+            },
+            {
+              "kind": "method",
+              "name": "_keyLabel",
+              "parameters": [
+                {
+                  "name": "keyForLabel"
+                },
+                {
+                  "name": "kind"
+                }
+              ]
+            },
+            {
+              "kind": "method",
+              "name": "_typeChip",
+              "parameters": [
+                {
+                  "name": "kind"
+                }
+              ]
+            },
+            {
+              "kind": "method",
+              "name": "_ensureRendered",
+              "parameters": [
+                {
+                  "name": "detailsEl"
+                }
+              ]
+            },
+            {
+              "kind": "method",
+              "name": "_runSearch",
+              "parameters": [
+                {
+                  "name": "query"
+                },
+                {
+                  "name": "options",
+                  "default": "{}"
+                }
+              ]
+            },
+            {
+              "kind": "method",
+              "name": "_gotoMatch",
+              "parameters": [
+                {
+                  "name": "i"
+                },
+                {
+                  "name": "query"
+                },
+                {
+                  "name": "options",
+                  "default": "{}"
+                }
+              ]
+            },
+            {
+              "kind": "method",
+              "name": "_expandAncestors",
+              "parameters": [
+                {
+                  "name": "path"
+                }
+              ]
+            },
+            {
+              "kind": "method",
+              "name": "_highlightInNode",
+              "parameters": [
+                {
+                  "name": "node"
+                },
+                {
+                  "name": "query"
+                },
+                {
+                  "name": "{ regex = false, caseSensitive = false }",
+                  "default": "{}"
+                }
+              ]
+            },
+            {
+              "kind": "method",
+              "name": "_clearMarks"
+            },
+            {
+              "kind": "method",
+              "name": "_bindEvents"
+            },
+            {
+              "kind": "method",
+              "name": "_resolvePath",
+              "parameters": [
+                {
+                  "name": "path"
+                }
+              ]
+            },
+            {
+              "kind": "field",
+              "name": "_data",
+              "default": "undefined"
+            },
+            {
+              "kind": "field",
+              "name": "_refs",
+              "type": {
+                "text": "object"
+              },
+              "default": "{ body: this.shadowRoot.querySelector('.body'), toolbar: this.shadowRoot.querySelector('.toolbar'), search: this.shadowRoot.querySelector('.search'), searchIn: this.shadowRoot.querySelector('.search input'), searchCt: this.shadowRoot.querySelector('.search .count'), pathBar: this.shadowRoot.querySelector('.path-bar'), pathOut: this.shadowRoot.querySelector('.path-bar code'), }"
+            },
+            {
+              "kind": "field",
+              "name": "_renderedSet",
+              "default": "new WeakSet()"
+            },
+            {
+              "kind": "field",
+              "name": "_entryMap",
+              "default": "new WeakMap()"
+            },
+            {
+              "kind": "field",
+              "name": "_matches",
+              "type": {
+                "text": "array"
+              },
+              "default": "[]"
+            },
+            {
+              "kind": "field",
+              "name": "_records",
+              "type": {
+                "text": "array"
+              },
+              "default": "[]"
+            },
+            {
+              "kind": "field",
+              "name": "_matchIdx",
+              "type": {
+                "text": "number"
+              },
+              "default": "-1"
+            },
+            {
+              "kind": "field",
+              "name": "_seen",
+              "type": {
+                "text": "null"
+              },
+              "default": "null"
+            }
+          ],
+          "events": [
+            {
+              "name": "json-viewer:keyclick",
+              "type": {
+                "text": "CustomEvent"
+              }
+            },
+            {
+              "name": "json-viewer:valueclick",
+              "type": {
+                "text": "CustomEvent"
+              }
+            }
+          ],
+          "attributes": [
+            {
+              "name": "data"
+            },
+            {
+              "name": "src"
+            },
+            {
+              "name": "expanded"
+            },
+            {
+              "name": "mode"
+            },
+            {
+              "name": "show-types"
+            },
+            {
+              "name": "show-sizes"
+            },
+            {
+              "name": "show-indices"
+            },
+            {
+              "name": "indent"
+            }
+          ],
+          "superclass": {
+            "name": "HTMLElement"
+          },
+          "tagName": "json-viewer",
+          "customElement": true
+        }
+      ],
+      "exports": [
+        {
+          "kind": "custom-element-definition",
+          "name": "json-viewer",
+          "declaration": {
+            "name": "JsonViewer",
+            "module": "src/json-viewer.js"
+          }
+        },
+        {
+          "kind": "js",
+          "name": "JsonViewer",
+          "declaration": {
+            "name": "JsonViewer",
+            "module": "src/json-viewer.js"
+          }
+        },
+        {
+          "kind": "js",
+          "name": "default",
+          "declaration": {
+            "name": "JsonViewer",
+            "module": "src/json-viewer.js"
+          }
+        }
+      ]
+    }
+  ]
+}
