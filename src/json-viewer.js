@@ -835,7 +835,7 @@ class JsonViewer extends HTMLElement {
     const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT, {
       acceptNode: (n) => {
         const p = n.parentElement;
-        if (!p || p.classList.contains('size') || p.classList.contains('type') || p.classList.contains('copy')) {
+        if (!p || p.classList.contains('size') || p.classList.contains('type') || p.classList.contains('copy') || p.classList.contains('truncated')) {
           return NodeFilter.FILTER_REJECT;
         }
         return NodeFilter.FILTER_ACCEPT;
