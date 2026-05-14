@@ -1,176 +1,239 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>json-viewer · demo</title>
-  <style>
-    :root {
-      color-scheme: light dark;
-      --page-bg: light-dark(#fafaf9, #18181b);
-      --page-fg: light-dark(#1c1917, #f4f4f5);
-      --page-muted: light-dark(#71717a, #a1a1aa);
-      --page-border: light-dark(#e7e5e4, #3f3f46);
-      --page-surface: light-dark(#ffffff, #27272a);
-      --page-accent: light-dark(#0f766e, #2dd4bf);
-    }
-    body {
-      font-family: ui-sans-serif, system-ui, sans-serif;
-      background: var(--page-bg);
-      color: var(--page-fg);
-      margin: 0;
-      padding: clamp(0.75rem, 2vw, 2rem);
-      max-width: 80rem;
-      margin-inline: auto;
-      line-height: 1.5;
-    }
-    h1 { letter-spacing: -0.02em; margin: 0 0 0.5rem; }
-    .lede { color: var(--page-muted); max-width: 60ch; margin: 0 0 1.5rem; }
-    .controls {
-      display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center;
-      padding: 0.75rem;
-      background: var(--page-surface);
-      border: 1px solid var(--page-border);
-      border-radius: 0.75rem;
-      margin-bottom: 1rem;
-    }
-    .controls select, .controls input[type="number"], .controls button {
-      font: inherit; font-size: 0.875rem;
-      padding: 0.375rem 0.625rem;
-      border: 1px solid var(--page-border);
-      border-radius: 0.375rem;
-      background: var(--page-bg);
-      color: inherit;
-    }
-    .controls button { cursor: pointer; }
-    .controls label { font-size: 0.875rem; color: var(--page-muted); display: inline-flex; gap: 0.375rem; align-items: center; }
-    body[data-vb-theme="warm"] json-viewer {
-      --vb-json-key: #b91c1c;
-      --vb-json-string: #b45309;
-      --vb-json-number: #1d4ed8;
-      --vb-accent: #ea580c;
-    }
-  </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Demos · json-viewer</title>
+  <meta name="description" content="Interactive demos for the <json-viewer> web component: tree rendering, path API, search, Map/Set, exotic types, theming.">
+  <link rel="stylesheet" href="styles.css">
+  <script type="module" src="../src/json-viewer.js"></script>
 </head>
 <body>
-  <h1>&lt;json-viewer&gt;</h1>
-  <p class="lede">
-    Demo harness. Imports the component as an ES module and exercises every attribute,
-    method, and event. Resize the window narrow to see the mobile toolbar collapse.
-  </p>
+  <header class="site-header">
+    <nav>
+      <a href="index.html" class="nav-brand">&lt;json-viewer&gt;</a>
+      <div class="nav-links">
+        <a href="index.html">Home</a>
+        <a href="demos.html" class="active">Demos</a>
+        <a href="api.html">API</a>
+        <a href="playground.html">Playground</a>
+        <a href="https://github.com/ProfPowell/json-viewer">GitHub</a>
+        <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">🌓</button>
+      </div>
+    </nav>
+  </header>
 
-  <div class="controls" role="toolbar">
-    <label>Dataset
-      <select id="dataset-select">
-        <option value="api">API response</option>
-        <option value="config">Config file</option>
-        <option value="nested">Deeply nested</option>
-        <option value="array">Array (200 items)</option>
-        <option value="exotic">Exotic types</option>
-        <option value="huge">Huge (~2000 keys)</option>
-      </select>
-    </label>
-    <label>Depth <input id="depth-input" type="number" min="0" max="20" value="2" /></label>
-    <label><input id="types-toggle" type="checkbox" /> types</label>
-    <label><input id="sizes-toggle" type="checkbox" checked /> sizes</label>
-    <label><input id="indices-toggle" type="checkbox" checked /> indices</label>
-    <button id="theme-warm">Swap theme tokens</button>
-    <button id="expand-all">Expand all</button>
-    <button id="collapse-all">Collapse all</button>
-    <button id="expand-users">expand('user.**')</button>
-  </div>
+  <main>
+    <h1>Demos</h1>
+    <p class="demo-description">Each section is a runnable example. Use the table of contents to jump around, or open <a href="playground.html">the playground</a> for the rich kitchen-sink demo.</p>
 
-  <json-viewer id="viewer" expanded="2" show-sizes show-indices></json-viewer>
+    <ul>
+      <li><a href="#tree">Tree rendering basics</a></li>
+      <li><a href="#expansion">Expansion control</a></li>
+      <li><a href="#path-api">Path &amp; glob API</a></li>
+      <li><a href="#search">Search across keys &amp; values</a></li>
+      <li><a href="#map-set">Map / Set with object keys</a></li>
+      <li><a href="#exotic">Exotic types (BigInt, Date, circular)</a></li>
+      <li><a href="#theming">Live theming via CSS tokens</a></li>
+      <li><a href="#src">Load JSON from a URL</a></li>
+      <li><a href="#raw">Raw mode</a></li>
+    </ul>
+
+    <section id="tree" class="demo-section">
+      <h2>Tree rendering basics</h2>
+      <p class="demo-description">Set <code>.data</code> to any JS value. Containers become collapsible <code>&lt;details&gt;</code> nodes; primitives render with color-coded type styling. The boolean attributes <code>show-types</code>, <code>show-sizes</code>, and <code>show-indices</code> reveal extra metadata.</p>
+      <div class="controls">
+        <label><input type="checkbox" id="t-types"> show-types</label>
+        <label><input type="checkbox" id="t-sizes" checked> show-sizes</label>
+        <label><input type="checkbox" id="t-indices"> show-indices</label>
+      </div>
+      <json-viewer id="tree-demo" expanded="2"></json-viewer>
+    </section>
+
+    <section id="expansion" class="demo-section">
+      <h2>Expansion control</h2>
+      <p class="demo-description">The <code>expanded</code> attribute sets the initial depth. The toolbar's Expand / Collapse buttons and the methods <code>.expandAll()</code> / <code>.collapseAll()</code> work at any time.</p>
+      <div class="controls">
+        <label>expanded:
+          <select id="e-depth">
+            <option value="0">0 (root only)</option>
+            <option value="1" selected>1</option>
+            <option value="2">2</option>
+            <option value="true">true (all)</option>
+          </select>
+        </label>
+        <button id="e-expand">.expandAll()</button>
+        <button id="e-collapse">.collapseAll()</button>
+      </div>
+      <json-viewer id="expansion-demo" expanded="1"></json-viewer>
+    </section>
+
+    <section id="path-api" class="demo-section">
+      <h2>Path &amp; glob API</h2>
+      <p class="demo-description">Paths use object keys (<code>users.name</code>), array indices (<code>users[0]</code>), and Map/Set entry markers (<code>cache@0</code>). The matcher accepts string, glob (<code>*</code> one segment, <code>**</code> zero or more), RegExp, or a predicate.</p>
+      <div class="controls">
+        <button data-expand="users[*]">expand('users[*]')</button>
+        <button data-expand="users[*].roles">expand('users[*].roles')</button>
+        <button data-expand-re="^users\[\d+\]\.email$">expand(/^users\[\d+\]\.email$/)</button>
+        <button id="p-collapse">collapseAll()</button>
+      </div>
+      <json-viewer id="path-demo" expanded="2" show-indices></json-viewer>
+    </section>
+
+    <section id="search" class="demo-section">
+      <h2>Search across keys &amp; values</h2>
+      <p class="demo-description">Open the search panel in the toolbar (or call <code>.search(query)</code>) to filter. Search runs over a pre-built record array, not the DOM — only ancestors of the active match expand, not the whole tree. Press Enter to advance, Shift-Enter to step back.</p>
+      <p class="demo-description">Try queries like <code>ada</code>, <code>email</code>, or the regex <code>\d{3}</code> in regex mode.</p>
+      <json-viewer id="search-demo" expanded="1"></json-viewer>
+    </section>
+
+    <section id="map-set" class="demo-section">
+      <h2>Map / Set with object keys</h2>
+      <p class="demo-description">Map entries are addressed by index with the <code>@&lt;i&gt;</code> path segment. The internal WeakMap preserves the original key reference, so <code>.entryAt('cache@0').key</code> returns the same object you put in.</p>
+      <div class="controls">
+        <button id="m-entry">entryAt('cache@0')</button>
+        <span id="m-result" style="color: var(--text-secondary); font-family: ui-monospace, monospace; font-size: 0.875rem"></span>
+      </div>
+      <json-viewer id="map-demo" expanded="3"></json-viewer>
+    </section>
+
+    <section id="exotic" class="demo-section">
+      <h2>Exotic types</h2>
+      <p class="demo-description">BigInt, Date, RegExp, Function, and circular references all render with distinct styling. Circular self-references render as <code>[circular]</code> instead of stack-overflowing.</p>
+      <json-viewer id="exotic-demo" expanded="3" show-types></json-viewer>
+    </section>
+
+    <section id="theming" class="demo-section">
+      <h2>Live theming via CSS tokens</h2>
+      <p class="demo-description">The token contract is <code>--json-viewer-foo</code> → <code>--vb-foo</code> → hardcoded <code>light-dark()</code>. Pick colors below to set custom properties directly on the host element — no JS rebuilds, just CSS.</p>
+      <div class="controls">
+        <label>accent <input type="color" id="th-accent" value="#0f766e"></label>
+        <label>key <input type="color" id="th-key" value="#7e22ce"></label>
+        <label>string <input type="color" id="th-string" value="#15803d"></label>
+        <label>number <input type="color" id="th-number" value="#1d4ed8"></label>
+        <button id="th-reset">Reset</button>
+      </div>
+      <json-viewer id="theme-demo" expanded="2"></json-viewer>
+    </section>
+
+    <section id="src" class="demo-section">
+      <h2>Load JSON from a URL</h2>
+      <p class="demo-description">The <code>src</code> attribute fetches and parses JSON on connect (or whenever the attribute changes). Errors render as a small <code>{ error: "..." }</code> object.</p>
+<pre><code>&lt;json-viewer src="../test/fixtures/api.json" expanded="1" show-types&gt;&lt;/json-viewer&gt;</code></pre>
+      <json-viewer src="../test/fixtures/api.json" expanded="1" show-types></json-viewer>
+    </section>
+
+    <section id="raw" class="demo-section">
+      <h2>Raw mode</h2>
+      <p class="demo-description">Set <code>mode="raw"</code> to render a pretty-printed JSON string instead of a tree — useful for copy/paste.</p>
+      <div class="controls">
+        <button id="r-toggle">Toggle mode</button>
+        <span id="r-mode" style="color: var(--text-secondary); font-family: monospace"></span>
+      </div>
+      <json-viewer id="raw-demo" mode="tree" expanded="2"></json-viewer>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <p>MIT License · <a href="https://github.com/ProfPowell/json-viewer">View on GitHub</a></p>
+  </footer>
+
+  <script>
+    function toggleTheme() {
+      document.body.classList.toggle('dark');
+      localStorage.setItem('theme', document.body.classList.contains('dark') ? 'dark' : 'light');
+    }
+    if (localStorage.getItem('theme') === 'dark') document.body.classList.add('dark');
+  </script>
 
   <script type="module">
-    import '../src/json-viewer.js';
+    customElements.whenDefined('json-viewer').then(() => {
+      const apiSample = {
+        endpoint: '/v1/users',
+        status: 200,
+        users: [
+          { id: 1, name: 'Ada Lovelace', email: 'ada@example.com', roles: ['admin', 'engineer'] },
+          { id: 2, name: 'Linus Torvalds', email: 'linus@example.com', roles: ['maintainer'] },
+          { id: 3, name: 'Grace Hopper', email: 'grace@example.com', roles: ['admiral'] }
+        ],
+        config: { theme: 'dark', adaMode: true, requestId: 'req_a1b2c3' },
+        meta: { ts: 1736900000, version: '2.0.0' }
+      }
 
-    const viewer = document.getElementById('viewer');
+      const tree = document.getElementById('tree-demo')
+      tree.data = apiSample
+      tree.setAttribute('show-sizes', '')
+      const wire = (id, attr) => document.getElementById(id).addEventListener('change', (e) => {
+        if (e.target.checked) tree.setAttribute(attr, ''); else tree.removeAttribute(attr)
+      })
+      wire('t-types', 'show-types'); wire('t-sizes', 'show-sizes'); wire('t-indices', 'show-indices')
 
-    const samples = {
-      api: {
-        status: "ok",
-        requestId: "req_8c4f12a9-2b88-49ee-8d1a-9c3b7f5e0a2d",
-        timestamp: "2026-05-11T14:32:08.221Z",
-        user: {
-          id: 4710, name: "Ada Lovelace", email: "ada@example.com",
-          roles: ["admin", "engineer"], active: true,
-          lastLogin: new Date("2026-05-10T22:18:00Z"),
-          preferences: { theme: "system", density: "comfortable",
-            notifications: { email: true, push: false, sms: null } }
-        },
-        data: {
-          items: [
-            { id: 1, name: "Item α", price: 12.5, tags: ["new", "sale"] },
-            { id: 2, name: "Item β", price: 0, tags: [] },
-            { id: 3, name: "Item γ", price: 9999.99, tags: ["limited"], homepage: "https://example.com/g" }
-          ],
-          meta: { page: 1, perPage: 25, total: 3, hasMore: false }
-        },
-        errors: null
-      },
-      config: {
-        $schema: "https://vanilla-breeze.com/schemas/config.json",
-        name: "vanilla-breeze", version: "0.4.2",
-        compatibility: { browsers: ["chrome >= 110", "safari >= 16", "firefox >= 115"], node: ">=18" },
-        build: { entry: "./src/index.js", outDir: "./dist", minify: true, sourcemap: "inline" },
-        features: { serviceWorkerAssembly: true, dataOnEvents: true, brandReplicator: false }
-      },
-      nested: (() => {
-        let n = "leaf";
-        for (let i = 12; i >= 0; i--) n = { ["level_" + i]: n, sibling: i % 3 === 0 ? [i, i*2, i*3] : null };
-        return n;
-      })(),
-      array: { items: Array.from({ length: 200 }, (_, i) =>
-        ({ id: i, name: `Row ${i}`, value: Math.round(Math.random()*10000)/100, active: i % 4 !== 0 })) },
-      exotic: {
-        string: "hello",
-        multilineString: "line one\nline two\nline three: " + "x".repeat(300),
-        number: 42,
-        bigNumber: 9007199254740993n,
-        float: 3.14159265358979,
-        negZero: -0, infinity: Infinity, nan: NaN,
-        bool: true, nothing: null, missing: undefined,
-        date: new Date(), regex: /^([a-z]+)\.([a-z]+)$/i,
-        fn: function namedFn() {}, arrow: () => 1,
-        url: "https://anthropic.com",
-        set: new Set([1, 2, 3]), map: new Map([["a", 1], ["b", 2]]),
-        nested: { circular: null }
-      },
-      huge: (() => {
-        const o = {};
-        for (let i = 0; i < 2000; i++) o["key_" + i] = { i, name: `item_${i}`, tags: ["t" + (i % 7)] };
-        return o;
-      })()
-    };
-    samples.exotic.nested.circular = samples.exotic;
+      const eDemo = document.getElementById('expansion-demo')
+      eDemo.data = apiSample
+      document.getElementById('e-depth').addEventListener('change', (e) => eDemo.setAttribute('expanded', e.target.value))
+      document.getElementById('e-expand').addEventListener('click', () => eDemo.expandAll())
+      document.getElementById('e-collapse').addEventListener('click', () => eDemo.collapseAll())
 
-    const load = (k) => { viewer.data = samples[k]; };
+      const pDemo = document.getElementById('path-demo')
+      pDemo.data = apiSample
+      document.querySelectorAll('#path-api button[data-expand]').forEach(btn => {
+        btn.addEventListener('click', () => pDemo.expand(btn.dataset.expand))
+      })
+      document.querySelectorAll('#path-api button[data-expand-re]').forEach(btn => {
+        btn.addEventListener('click', () => pDemo.expand(new RegExp(btn.dataset.expandRe)))
+      })
+      document.getElementById('p-collapse').addEventListener('click', () => pDemo.collapseAll())
 
-    document.getElementById('dataset-select').addEventListener('change', e => load(e.target.value));
-    document.getElementById('depth-input').addEventListener('input', e => {
-      const v = parseInt(e.target.value, 10);
-      if (Number.isFinite(v)) viewer.setAttribute('expanded', String(v));
-    });
-    document.getElementById('types-toggle').addEventListener('change', e =>
-      e.target.checked ? viewer.setAttribute('show-types', '') : viewer.removeAttribute('show-types'));
-    document.getElementById('sizes-toggle').addEventListener('change', e =>
-      e.target.checked ? viewer.setAttribute('show-sizes', '') : viewer.removeAttribute('show-sizes'));
-    document.getElementById('indices-toggle').addEventListener('change', e =>
-      e.target.checked ? viewer.setAttribute('show-indices', '') : viewer.removeAttribute('show-indices'));
-    document.getElementById('theme-warm').addEventListener('click', e => {
-      const on = document.body.dataset.vbTheme === 'warm';
-      document.body.dataset.vbTheme = on ? '' : 'warm';
-      e.target.textContent = on ? 'Swap theme tokens' : 'Default theme';
-    });
-    document.getElementById('expand-all').addEventListener('click', () => viewer.expandAll());
-    document.getElementById('collapse-all').addEventListener('click', () => viewer.collapseAll());
-    document.getElementById('expand-users').addEventListener('click', () => viewer.expand('user.**'));
+      const sDemo = document.getElementById('search-demo')
+      sDemo.data = apiSample
 
-    viewer.addEventListener('json-viewer:keyclick',   e => console.log('json-viewer:keyclick',   e.detail));
-    viewer.addEventListener('json-viewer:valueclick', e => console.log('json-viewer:valueclick', e.detail));
+      const mDemo = document.getElementById('map-demo')
+      const adaKey = { id: 1, name: 'Ada Lovelace' }
+      const cache = new Map()
+      cache.set(adaKey, { hits: 42, lastSeen: '2026-05-14' })
+      cache.set('linus', { hits: 17, lastSeen: '2026-05-13' })
+      mDemo.data = { cache, tagSet: new Set(['urgent', 'review', 'shipped']) }
+      document.getElementById('m-entry').addEventListener('click', () => {
+        const entry = mDemo.entryAt('cache@0')
+        document.getElementById('m-result').textContent = `key === adaKey: ${entry.key === adaKey} · value.hits: ${entry.value.hits}`
+      })
 
-    load('api');
+      const xDemo = document.getElementById('exotic-demo')
+      const circ = { name: 'self-referential', tag: 'loop' }
+      circ.self = circ
+      xDemo.data = {
+        big: 9007199254740993n,
+        when: new Date('2026-05-14T12:00:00Z'),
+        pattern: /\b[a-z]+\b/gi,
+        fn: function named() {},
+        circular: circ
+      }
+
+      const thDemo = document.getElementById('theme-demo')
+      thDemo.data = apiSample.users[0]
+      const setVar = (id, prop) => document.getElementById(id).addEventListener('input', (e) => {
+        thDemo.style.setProperty(prop, e.target.value)
+      })
+      setVar('th-accent', '--json-viewer-accent')
+      setVar('th-key', '--json-viewer-key')
+      setVar('th-string', '--json-viewer-string')
+      setVar('th-number', '--json-viewer-number')
+      document.getElementById('th-reset').addEventListener('click', () => {
+        ['--json-viewer-accent', '--json-viewer-key', '--json-viewer-string', '--json-viewer-number']
+          .forEach(p => thDemo.style.removeProperty(p))
+      })
+
+      const rDemo = document.getElementById('raw-demo')
+      rDemo.data = { greeting: 'hello', items: [1, 2, 3], active: true }
+      const rMode = document.getElementById('r-mode')
+      const updateMode = () => { rMode.textContent = `mode="${rDemo.getAttribute('mode') || 'tree'}"` }
+      updateMode()
+      document.getElementById('r-toggle').addEventListener('click', () => {
+        const next = rDemo.getAttribute('mode') === 'raw' ? 'tree' : 'raw'
+        rDemo.setAttribute('mode', next)
+        updateMode()
+      })
+    })
   </script>
 </body>
 </html>

@@ -34,20 +34,26 @@ jobs:
 
       - name: Stage _site
         run: |
-          mkdir -p _site/src _site/docs
-          # Landing page at site root — index.html is self-contained
-          cp docs/index.html _site/index.html
-          # Mirror docs/* under /docs so links from index work too
+          mkdir -p _site/src _site/docs _site/dist _site/test
+          # All real pages live under /docs/ so the relative `../src/json-viewer.js`
+          # imports resolve correctly. The root index.html is a thin redirect.
           cp -R docs/. _site/docs/
-          # Make src/json-viewer.js reachable so docs/demos.html's
-          # `import '../src/json-viewer.js'` resolves on Pages.
-          # We ship the BUILT bundle under src/ so consumers see what npm ships.
+          # Ship the BUILT bundle at the two paths consumers can reference.
           cp dist/json-viewer.js _site/src/json-viewer.js
-          # Also expose dist/ for anyone who wants to script-tag it
-          mkdir -p _site/dist
           cp dist/json-viewer.js _site/dist/json-viewer.js
-          # 404 page falls back to landing
-          cp docs/index.html _site/404.html
+          # Fixtures used by the demos page's `src=` attribute
+          cp -R test/fixtures _site/test/fixtures
+          # Root redirect to /docs/ — keeps the published URL clean
+          cat > _site/index.html <<'HTML'
+          <!DOCTYPE html>
+          <meta charset="utf-8">
+          <title>json-viewer</title>
+          <meta http-equiv="refresh" content="0; url=./docs/">
+          <link rel="canonical" href="./docs/">
+          <p>Redirecting to <a href="./docs/">/docs/</a>…</p>
+          HTML
+          # 404 page also redirects to the docs landing
+          cp _site/index.html _site/404.html
 
       - uses: actions/configure-pages@v5
 

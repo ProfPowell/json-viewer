@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>API Reference · json-viewer</title>
+  <meta name="description" content="Complete API documentation for the <json-viewer> web component: attributes, properties, methods, events, path grammar, and CSS custom properties.">
+  <link rel="stylesheet" href="styles.css">
+  <script type="module" src="../src/json-viewer.js"></script>
+</head>
+<body>
+  <header class="site-header">
+    <nav>
+      <a href="index.html" class="nav-brand">&lt;json-viewer&gt;</a>
+      <div class="nav-links">
+        <a href="index.html">Home</a>
+        <a href="demos.html">Demos</a>
+        <a href="api.html" class="active">API</a>
+        <a href="playground.html">Playground</a>
+        <a href="https://github.com/ProfPowell/json-viewer">GitHub</a>
+        <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">🌓</button>
+      </div>
+    </nav>
+  </header>
+
+  <main>
+    <h1>API Reference</h1>
+    <p class="demo-description">Complete documentation for the <code>&lt;json-viewer&gt;</code> custom element. Tag name: <code>json-viewer</code>. Class: <code>JsonViewer</code> (extends <code>HTMLElement</code>).</p>
+
+    <ul>
+      <li><a href="#install">Installation</a></li>
+      <li><a href="#attributes">Attributes</a></li>
+      <li><a href="#properties">Properties</a></li>
+      <li><a href="#methods">Methods</a></li>
+      <li><a href="#events">Events</a></li>
+      <li><a href="#paths">Path grammar</a></li>
+      <li><a href="#tokens">CSS custom properties</a></li>
+      <li><a href="#parts">CSS parts</a></li>
+      <li><a href="#examples">Examples</a></li>
+    </ul>
+
+    <section id="install">
+      <h2>Installation</h2>
+      <h3>npm</h3>
+<pre><code>npm install @profpowell/json-viewer</code></pre>
+      <p>Then in your module:</p>
+<pre><code>import '@profpowell/json-viewer'   // side-effect import: defines &lt;json-viewer&gt;
+// or
+import { JsonViewer } from '@profpowell/json-viewer'
+customElements.define('my-viewer', JsonViewer)</code></pre>
+
+      <h3>CDN</h3>
+<pre><code>&lt;script type="module" src="https://unpkg.com/@profpowell/json-viewer"&gt;&lt;/script&gt;</code></pre>
+
+      <h3>No bundler</h3>
+      <p>Drop <code>dist/json-viewer.js</code> next to your HTML and reference it directly:</p>
+<pre><code>&lt;script type="module" src="./json-viewer.js"&gt;&lt;/script&gt;
+&lt;json-viewer expanded="2"&gt;&lt;/json-viewer&gt;</code></pre>
+    </section>
+
+    <section id="attributes">
+      <h2>Attributes</h2>
+      <p>All attributes are observed: changing them after the element is connected triggers a re-render.</p>
+      <table class="api-table">
+        <thead>
+          <tr><th>Attribute</th><th>Type</th><th>Default</th><th>Description</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>data</code></td>
+            <td>JSON string</td>
+            <td>—</td>
+            <td>Inline JSON data. Prefer the <code>.data</code> property for non-stringifiable values (Maps, BigInts, etc.).</td>
+          </tr>
+          <tr>
+            <td><code>src</code></td>
+            <td>URL</td>
+            <td>—</td>
+            <td>Fetched as JSON on connect and whenever the attribute changes. Errors render as <code>{ error: "&lt;message&gt;" }</code>.</td>
+          </tr>
+          <tr>
+            <td><code>expanded</code></td>
+            <td>int | <code>true</code> | <code>false</code></td>
+            <td><code>1</code></td>
+            <td>Initial expansion depth. <code>0</code> opens the root only; integers open that many levels; <code>true</code> opens everything; <code>false</code> opens nothing.</td>
+          </tr>
+          <tr>
+            <td><code>mode</code></td>
+            <td><code>tree</code> | <code>raw</code></td>
+            <td><code>tree</code></td>
+            <td><code>raw</code> mode renders a pretty-printed JSON string in a <code>&lt;pre&gt;</code> block instead of the interactive tree.</td>
+          </tr>
+          <tr>
+            <td><code>show-types</code></td>
+            <td>boolean</td>
+            <td><code>false</code></td>
+            <td>When present, type chips (<code>string</code>, <code>number</code>, <code>array</code>, …) appear next to each value.</td>
+          </tr>
+          <tr>
+            <td><code>show-sizes</code></td>
+            <td>boolean</td>
+            <td><code>false</code></td>
+            <td>When present, array length and object/Map/Set entry counts appear in the container preview.</td>
+          </tr>
+          <tr>
+            <td><code>show-indices</code></td>
+            <td>boolean</td>
+            <td><code>false</code></td>
+            <td>When present, array indices render as a leading <code>0:</code>, <code>1:</code>, … prefix on each item.</td>
+          </tr>
+          <tr>
+            <td><code>indent</code></td>
+            <td>int (ch units)</td>
+            <td><code>2</code></td>
+            <td>Indentation width per level (in <code>ch</code>). Also controls the JSON indent in raw mode.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="properties">
+      <h2>Properties</h2>
+      <table class="api-table">
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><code>.data</code></td>
+            <td><code>unknown</code></td>
+            <td>Read/write. Setting triggers a re-render and pre-builds the search-record index. Accepts any JS value — primitive, plain object, array, Map, Set, Date, RegExp, BigInt, Function, or circular graph.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="methods">
+      <h2>Methods</h2>
+
+      <h3><code>.expand(matcher)</code> / <code>.collapse(matcher)</code></h3>
+      <p>Open or close every rendered container whose path matches <code>matcher</code>.</p>
+      <table class="api-table">
+        <thead><tr><th>Matcher type</th><th>Example</th><th>Behavior</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>string (exact)</td>
+            <td><code>'users[0].name'</code></td>
+            <td>Matches the exact path, or any path ending in <code>.users[0].name</code> / <code>]users[0].name</code>.</td>
+          </tr>
+          <tr>
+            <td>string (glob)</td>
+            <td><code>'users[*].roles'</code></td>
+            <td><code>*</code> matches one path segment; <code>**</code> matches zero or more.</td>
+          </tr>
+          <tr>
+            <td>RegExp</td>
+            <td><code>/^users\[\d+\]\.email$/</code></td>
+            <td>Tested against the full path string.</td>
+          </tr>
+          <tr>
+            <td>function</td>
+            <td><code>p =&gt; p.startsWith('config')</code></td>
+            <td>Called with each rendered path; truthy result means a match.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3><code>.expandAll()</code> / <code>.collapseAll()</code></h3>
+      <p>Open or close every currently-rendered container.</p>
+
+      <h3><code>.search(query, options?)</code></h3>
+      <p>Returns a navigable iterator over matches.</p>
+<pre><code>const it = viewer.search('error', { regex: false, caseSensitive: false })
+it.count            // total matches
+it.current?.path    // path of the focused match, or undefined
+it.next()           // advance + return { value, done }
+it.prev()           // step back
+// also iterable: for (const m of viewer.search('foo')) { ... }</code></pre>
+      <p>The search walks an internal record array built from <code>.data</code>, not the DOM. Only the ancestors of the focused match are expanded — never the whole tree. Only the focused match is wrapped in <code>&lt;mark&gt;</code>.</p>
+      <p>Options:</p>
+      <table class="api-table">
+        <thead><tr><th>Option</th><th>Default</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>regex</code></td><td><code>false</code></td><td>Treat <code>query</code> as a regular expression source.</td></tr>
+          <tr><td><code>caseSensitive</code></td><td><code>false</code></td><td>Match case exactly.</td></tr>
+        </tbody>
+      </table>
+
+      <h3><code>.entryAt(path)</code></h3>
+      <p>Returns <code>{ key, value }</code> for any path, including Map and Set entries where the key isn't a string. For object/array paths, <code>key</code> is the last segment; for Map entries it's the original key object (reference-equal to what you put in); for Set entries it's the integer index.</p>
+<pre><code>const adaKey = { id: 1 }
+const cache = new Map([[adaKey, { hits: 42 }]])
+viewer.data = { cache }
+const entry = viewer.entryAt('cache@0')
+entry.key === adaKey   // true — reference preserved
+entry.value.hits       // 42</code></pre>
+
+      <h3><code>.copy(text?)</code></h3>
+      <p>Writes to the clipboard. With no argument, copies a BigInt-safe JSON snapshot of <code>.data</code>. With an argument, copies that string verbatim. Returns a Promise.</p>
+<pre><code>await viewer.copy()                    // full BigInt-safe JSON
+await viewer.copy(viewer.entryAt('users[0]').value.email)</code></pre>
+    </section>
+
+    <section id="events">
+      <h2>Events</h2>
+      <p>Both events bubble and are <code>composed: true</code> so they cross the Shadow DOM boundary.</p>
+      <table class="api-table">
+        <thead><tr><th>Event</th><th>detail</th><th>Fires when</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><code>json-viewer:keyclick</code></td>
+            <td><code>{ path, key, value }</code></td>
+            <td>A key (the quoted property name in the tree) is clicked. The path-bar in the toolbar also opens.</td>
+          </tr>
+          <tr>
+            <td><code>json-viewer:valueclick</code></td>
+            <td><code>{ path, value, type }</code></td>
+            <td>A primitive value (string, number, etc.) is clicked. <code>type</code> is the result of internal <code>kindOf()</code>: <code>string</code>, <code>number</code>, <code>boolean</code>, <code>null</code>, <code>undefined</code>, <code>bigint</code>, <code>symbol</code>, <code>function</code>, <code>date</code>, <code>regexp</code>, <code>array</code>, <code>object</code>, <code>map</code>, <code>set</code>.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="paths">
+      <h2>Path grammar</h2>
+      <p>Paths are flat strings. The grammar:</p>
+      <table class="api-table">
+        <thead><tr><th>Segment</th><th>Example</th><th>Meaning</th></tr></thead>
+        <tbody>
+          <tr><td>Object key (identifier)</td><td><code>users</code></td><td>Property access. Joined with <code>.</code> for nested keys.</td></tr>
+          <tr><td>Object key (special)</td><td><code>["weird-key"]</code></td><td>Bracket-quoted when the key isn't a valid JS identifier.</td></tr>
+          <tr><td>Array index</td><td><code>users[0]</code></td><td>Zero-based index in brackets.</td></tr>
+          <tr><td>Map / Set entry</td><td><code>cache@0</code></td><td>Insertion-order index, prefixed with <code>@</code>. Use <a href="#methods"><code>.entryAt</code></a> to recover the original key.</td></tr>
+          <tr><td>Root</td><td><code>$</code></td><td>The whole value.</td></tr>
+        </tbody>
+      </table>
+      <p>Globs:</p>
+      <table class="api-table">
+        <thead><tr><th>Pattern</th><th>Matches</th></tr></thead>
+        <tbody>
+          <tr><td><code>*</code></td><td>Exactly one path segment (no dots or brackets inside).</td></tr>
+          <tr><td><code>**</code></td><td>Zero or more path segments — used at the start or end of a glob, e.g. <code>**.email</code>.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="tokens">
+      <h2>CSS custom properties</h2>
+      <p>Public theme contract. Each token resolves through a three-level fallback chain:</p>
+<pre><code>var(--json-viewer-FOO, var(--vb-FOO, light-dark(LIGHT, DARK)))</code></pre>
+      <p>Set <code>--json-viewer-*</code> for direct overrides, set <code>--vb-*</code> at the page level for ecosystem-wide theming, or leave both unset for the built-in <code>light-dark()</code> defaults.</p>
+      <table class="api-table">
+        <thead><tr><th>Public token</th><th>VB fallback</th><th>Default (light / dark)</th></tr></thead>
+        <tbody>
+          <tr><td><code>--json-viewer-font-mono</code></td><td><code>--vb-font-mono</code></td><td>system mono stack</td></tr>
+          <tr><td><code>--json-viewer-surface</code></td><td><code>--vb-surface</code></td><td><code>#ffffff</code> / <code>#1c1917</code></td></tr>
+          <tr><td><code>--json-viewer-text</code></td><td><code>--vb-text</code></td><td><code>#1c1917</code> / <code>#f4f4f5</code></td></tr>
+          <tr><td><code>--json-viewer-text-muted</code></td><td><code>--vb-text-muted</code></td><td><code>#71717a</code> / <code>#a1a1aa</code></td></tr>
+          <tr><td><code>--json-viewer-border</code></td><td><code>--vb-border</code></td><td><code>#e7e5e4</code> / <code>#3f3f46</code></td></tr>
+          <tr><td><code>--json-viewer-accent</code></td><td><code>--vb-accent</code></td><td><code>#0f766e</code> / <code>#2dd4bf</code></td></tr>
+          <tr><td><code>--json-viewer-radius</code></td><td><code>--vb-radius</code></td><td><code>0.5rem</code></td></tr>
+          <tr><td><code>--json-viewer-space-1..4</code></td><td><code>--vb-space-1..4</code></td><td><code>0.25 / 0.5 / 0.75 / 1 rem</code></td></tr>
+          <tr><td><code>--json-viewer-key</code></td><td><code>--vb-json-key</code></td><td><code>#7e22ce</code> / <code>#c084fc</code></td></tr>
+          <tr><td><code>--json-viewer-string</code></td><td><code>--vb-json-string</code></td><td><code>#15803d</code> / <code>#4ade80</code></td></tr>
+          <tr><td><code>--json-viewer-number</code></td><td><code>--vb-json-number</code></td><td><code>#1d4ed8</code> / <code>#60a5fa</code></td></tr>
+          <tr><td><code>--json-viewer-boolean</code></td><td><code>--vb-json-boolean</code></td><td><code>#a16207</code> / <code>#fbbf24</code></td></tr>
+          <tr><td><code>--json-viewer-null</code></td><td><code>--vb-json-null</code></td><td><code>#71717a</code> / <code>#a1a1aa</code></td></tr>
+          <tr><td><code>--json-viewer-punct</code></td><td><code>--vb-json-punct</code></td><td><code>#52525b</code> / <code>#a1a1aa</code></td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="parts">
+      <h2>CSS parts</h2>
+      <p>Use <code>::part()</code> to target inner regions for layout-level customization:</p>
+      <table class="api-table">
+        <thead><tr><th>Part</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>toolbar</code></td><td>The top action bar (Expand / Collapse / Search / Raw / Copy).</td></tr>
+          <tr><td><code>search</code></td><td>The search panel (input + next/prev/close buttons).</td></tr>
+          <tr><td><code>path-bar</code></td><td>The path-display strip that appears on key click.</td></tr>
+          <tr><td><code>path</code></td><td>The <code>&lt;code&gt;</code> element inside the path-bar.</td></tr>
+          <tr><td><code>body</code></td><td>The scrollable container holding the tree (or the raw <code>&lt;pre&gt;</code>).</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Example: borderless embed</h3>
+<pre><code>json-viewer::part(toolbar) { display: none; }
+json-viewer { border: none; }</code></pre>
+    </section>
+
+    <section id="examples">
+      <h2>Examples</h2>
+
+      <h3>Set data after fetching</h3>
+<pre><code>const viewer = document.querySelector('json-viewer')
+viewer.data = await fetch('/api/me').then(r =&gt; r.json())</code></pre>
+
+      <h3>React to clicks</h3>
+<pre><code>viewer.addEventListener('json-viewer:keyclick', (e) =&gt; {
+  console.log('clicked', e.detail.path, '=', e.detail.value)
+})</code></pre>
+
+      <h3>Expand specific paths after a search miss</h3>
+<pre><code>const it = viewer.search('errorCode')
+if (it.count === 0) {
+  viewer.expand('**.errors')   // expose error sections so a follow-up search hits them
+}</code></pre>
+
+      <h3>Theme a single instance</h3>
+<pre><code>&lt;json-viewer style="--json-viewer-accent: #ff5722; --json-viewer-radius: 0"&gt;
+&lt;/json-viewer&gt;</code></pre>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <p>MIT License · <a href="https://github.com/ProfPowell/json-viewer">View on GitHub</a></p>
+  </footer>
+
+  <script>
+    function toggleTheme() {
+      document.body.classList.toggle('dark');
+      localStorage.setItem('theme', document.body.classList.contains('dark') ? 'dark' : 'light');
+    }
+    if (localStorage.getItem('theme') === 'dark') document.body.classList.add('dark');
+  </script>
+</body>
+</html>
