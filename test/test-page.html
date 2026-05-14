@@ -12,5 +12,16 @@
     const el = document.getElementById('basic');
     el.data = { name: 'Ada', skills: ['math', 'engineering'], active: true, n: null };
   </script>
+  <json-viewer id="map-viewer" expanded="3"></json-viewer>
+  <script type="module">
+    const mapEl = document.getElementById('map-viewer');
+    const objKey = { id: 'k1', label: 'first' };
+    const m = new Map();
+    m.set(objKey, { tags: ['a', 'b'] });
+    m.set('plain', 99);
+    mapEl.data = m;
+    window.__mapEl = mapEl;
+    window.__objKey = objKey;
+  </script>
 </body>
 </html>
