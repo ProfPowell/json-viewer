@@ -547,7 +547,7 @@
     /* ============================================================
      * Element
      * ============================================================ */
-    class VBJsonViewer extends HTMLElement {
+    class JsonViewer extends HTMLElement {
       static get observedAttributes() {
         return ['data', 'src', 'expanded', 'mode', 'show-types', 'show-sizes', 'show-indices', 'indent'];
       }
@@ -1029,7 +1029,7 @@
       }
     }
 
-    customElements.define('json-viewer', VBJsonViewer);
+    customElements.define('json-viewer', JsonViewer);
   })();
 
   /* =====================================================================
