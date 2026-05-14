@@ -792,6 +792,8 @@ class JsonViewer extends HTMLElement {
     this._clearMarks();
     this._matches = [];
     this._matchIdx = -1;
+    this._lastQuery = query;
+    this._lastOptions = options;
     this._refs.searchCt.textContent = '0/0';
     if (!query) return;
 
@@ -799,6 +801,26 @@ class JsonViewer extends HTMLElement {
     this._matches = hits.map(r => ({ path: r.path }));
     this._refs.searchCt.textContent = `${this._matches.length ? 1 : 0}/${this._matches.length}`;
     if (this._matches.length) this._gotoMatch(0, query, options);
+  }
+
+  // Advance through existing matches without re-running the search. Re-runs
+  // the search when the input query has changed since the last run; otherwise
+  // just steps the current match index. direction: +1 next, -1 prev.
+  _stepMatch(direction) {
+    const query = this._refs.searchIn.value;
+    const optsChanged = query !== this._lastQuery;
+    if (optsChanged || !this._matches.length) {
+      this._runSearch(query, this._lastOptions || {});
+      // _runSearch already focused match 0; for "prev" from a cold start the
+      // user expects to land on the LAST match, so wrap if direction === -1.
+      if (direction === -1 && this._matches.length > 1) {
+        this._gotoMatch(this._matches.length - 1, query, this._lastOptions || {});
+      }
+      return;
+    }
+    const n = this._matches.length;
+    const next = (this._matchIdx + direction + n) % n;
+    this._gotoMatch(next, query, this._lastOptions || {});
   }
 
   _gotoMatch(i, query, options = {}) {
@@ -901,8 +923,8 @@ class JsonViewer extends HTMLElement {
         if (open) requestAnimationFrame(() => this._refs.searchIn.focus());
         else { this._refs.searchIn.value = ''; this._clearMarks(); this._matches = []; this._refs.searchCt.textContent = '0/0'; }
       }
-      else if (act === 'search-prev') { this.search(this._refs.searchIn.value).prev(); }
-      else if (act === 'search-next') { this.search(this._refs.searchIn.value).next(); }
+      else if (act === 'search-prev') { this._stepMatch(-1); }
+      else if (act === 'search-next') { this._stepMatch(+1); }
       else if (act === 'search-close') { this._refs.search.dataset.open = 'false'; this._clearMarks(); this._matches = []; this._refs.searchCt.textContent = '0/0'; root.querySelector('[data-act="search-toggle"]').setAttribute('aria-pressed', 'false'); }
       else if (act === 'copy-path') { this.copy(this._refs.pathOut.textContent); }
       else if (act === 'copy-subtree') {
@@ -946,8 +968,7 @@ class JsonViewer extends HTMLElement {
     this._refs.searchIn.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
         e.preventDefault();
-        const it = this.search(this._refs.searchIn.value);
-        e.shiftKey ? it.prev() : it.next();
+        this._stepMatch(e.shiftKey ? -1 : +1);
       } else if (e.key === 'Escape') {
         this._refs.search.dataset.open = 'false';
         this._clearMarks(); this._matches = [];

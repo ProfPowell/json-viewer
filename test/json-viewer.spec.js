@@ -75,3 +75,30 @@ test('search next/prev cycles', async ({ page }) => {
   expect(sequence.first).toBe(sequence.third)
   expect(sequence.second).not.toBe(sequence.first)
 })
+
+test('search toolbar buttons advance past the first match (json-viewer-b0r)', async ({ page }) => {
+  // Type in the search input, wait for debounced search to populate matches,
+  // then click ↓ twice. The visible match index should reach 3/N, not stay at 2/N.
+  const visited = await page.evaluate(async () => {
+    const el = window.__sv
+    // Open the search panel and type the query
+    el.shadowRoot.querySelector('[data-act="search-toggle"]').click()
+    const input = el.shadowRoot.querySelector('.search input')
+    input.value = 'ada'
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+    await new Promise(r => setTimeout(r, 200))   // wait past the 120ms debounce
+
+    const readCounter = () => el.shadowRoot.querySelector('.search .count').textContent
+    const start = readCounter()
+    el.shadowRoot.querySelector('[data-act="search-next"]').click()
+    const after1 = readCounter()
+    el.shadowRoot.querySelector('[data-act="search-next"]').click()
+    const after2 = readCounter()
+    return { start, after1, after2, matchCount: el._matches.length }
+  })
+  // With 3 'ada' matches the counter format is "i/3". After two ↓ clicks we
+  // should have advanced through three positions (1/3 → 2/3 → 3/3), not
+  // gotten stuck at 2/3.
+  expect(visited.matchCount).toBeGreaterThanOrEqual(3)
+  expect(visited.after1).not.toBe(visited.after2)
+})
