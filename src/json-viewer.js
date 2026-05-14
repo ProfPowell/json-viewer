@@ -419,7 +419,7 @@ const MAX_STRING = 200;
 const escapeHtml = (s) =>
   String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-const cssEscape = (s) => (typeof CSS !== 'undefined' && CSS.escape) ? CSS.escape(s) : s.replace(/(["\\\]\[:.()])/g, '\\$1');
+const cssEscape = (s) => (typeof CSS !== 'undefined' && CSS.escape) ? CSS.escape(s) : s.replace(/([\]"\\[:.()])/g, '\\$1');
 
 const renderPrimitive = (v, kind) => {
   switch (kind) {
@@ -756,7 +756,7 @@ class JsonViewer extends HTMLElement {
     return li;
   }
 
-  _keyLabel(keyForLabel, kind) {
+  _keyLabel(keyForLabel, _kind) {
     if (keyForLabel === null || keyForLabel === undefined) return '';
     const isIndex = typeof keyForLabel === 'number';
     if (isIndex) {

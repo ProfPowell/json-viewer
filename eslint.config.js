@@ -22,12 +22,14 @@ export default [
         fetch: 'readonly',
         URL: 'readonly',
         WeakSet: 'readonly',
-        WeakMap: 'readonly'
+        WeakMap: 'readonly',
+        CSS: 'readonly'
       }
     },
     rules: {
       'no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
-      'no-console': 'off'
+      'no-console': 'off',
+      'no-control-regex': 'off'
     }
   },
   { ignores: ['dist/', 'node_modules/', 'docs/', 'test/'] }
